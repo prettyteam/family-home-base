@@ -352,6 +352,7 @@ function shiftForm(s){
   openForm(s ? (mom?"Edit shift":"Fix my times") : "Add shift", fields, s || {date: ymd(new Date())}, v => {
     if(mom && !v.date) return "Pick a date.";
     const data = Object.assign({}, s ? strip(s) : {inAt:"",outAt:""}, v); delete data.example;
+    if(data.date) weekStart = mondayOf(parseYmd(data.date)); // show the week the shift was saved to
     save("shifts", s ? s._id : null, data);
   }, s && mom ? () => remove("shifts", s._id) : null);
 }
