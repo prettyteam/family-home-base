@@ -12,16 +12,15 @@ A shared organizer for Alexandra and the family's nanny: nanny shifts and hours,
 - After 20 wrong passcode attempts, the app locks for 15 minutes.
 - Never put school or account passwords in the app.
 
-## One-time Google setup (about 10 minutes)
+## One-time Google setup (about 5 minutes)
 
-1. Create a new Google Sheet named **Family Home Base Data**.
-2. In the sheet, choose **Extensions > Apps Script**. Delete what's there and paste in everything from `apps-script/Code.gs`. Save.
-3. In Apps Script, open **Project Settings** (gear icon). Under **Script Properties**, add:
-   - `OWNER_PIN` set to a passcode only you know (8 or more characters).
-   - `NANNY_PIN` set to a different passcode for your nanny.
-4. Optional: to preview with example entries, pick `loadExamples` in the function menu and click **Run**. To remove the examples later, run `clearExamples`.
-5. Click **Deploy > New deployment**. Choose type **Web app**, then set **Execute as: Me** and **Who has access: Anyone**. Click **Deploy** and approve the Google permission prompt.
-6. Copy the **Web app URL** and send it to Claude. Claude will add it to `index.html` (`API_URL`).
+The Google Sheet **Family Home Base Data** already exists in Alexandra's Drive.
+
+1. Open the Sheet and choose **Extensions > Apps Script**.
+2. Delete what's there, paste in everything from `apps-script/Code.gs`, and click Save.
+3. In the function menu at the top, pick **setup** and click **Run**. Approve Google's permission prompt. (If it says "Google hasn't verified this app," click **Advanced**, then **Go to project**.) This creates both passcodes in a **Passcodes** tab of the Sheet and turns on the Skylight calendar.
+4. Click **Deploy > New deployment**. For type, choose **Web app**. Set **Execute as: Me** and **Who has access: Anyone**, then click **Deploy**.
+5. Copy the **Web app URL** and send it to Claude.
 
 "Anyone" lets the page reach the script without a Google login. The passcode is what protects the data.
 
@@ -29,7 +28,7 @@ A shared organizer for Alexandra and the family's nanny: nanny shifts and hours,
 
 The app can copy the kids' weekly activities and the nanny's shifts for the next 4 weeks into a Google Calendar named **Family Home Base**. The Skylight can then show that calendar.
 
-1. In Apps Script, pick `setupCalendarSync` in the function menu and click **Run**. Approve the calendar permission. This creates the calendar and refreshes it every 15 minutes when something changes, and once a day.
+1. The `setup` step above turns this on. It creates the calendar and refreshes it every 15 minutes when something changes, and once a day.
 2. In the Skylight app, open calendar sync, connect the same Google account, and turn on the **Family Home Base** calendar.
 3. To keep nanny shifts off the Skylight, add the Script Property `SKYLIGHT_SHOW_SHIFTS` set to `no`.
 

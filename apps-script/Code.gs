@@ -6,6 +6,7 @@
  *   OWNER_PIN  full access (Alexandra)
  *   NANNY_PIN  nanny access: clock in/out, fix her times, check off to-dos and homework
  */
+const SHEET_ID = "1TFjO180dVUddqTtr2cAeDgspTEejo0u8aYnfrUS_Kh0"; // "Family Home Base Data" in Alexandra's Drive
 const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos"];
 const NANNY_WRITES = { shifts: ["set", "update"], assignments: ["set", "update"], todos: ["set", "update", "delete"] };
 
@@ -26,7 +27,7 @@ function role_(pin) {
 }
 
 function sheet_(name) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = SpreadsheetApp.openById(SHEET_ID);
   let sh = ss.getSheetByName(name);
   if (!sh) { sh = ss.insertSheet(name); sh.appendRow(["id", "record", "updated"]); }
   return sh;
@@ -94,6 +95,27 @@ function doPost(e) {
   } catch (err) {
     return out_({ ok: false, error: String(err.message || err) });
   }
+}
+
+/**
+ * One-time setup: run this once. It makes the two passcodes (if they don't exist yet),
+ * writes them to a "Passcodes" tab in the Sheet for Alexandra, and turns on the Skylight calendar.
+ */
+function setup() {
+  const p = PropertiesService.getScriptProperties();
+  const make = () => Utilities.getUuid().replace(/-/g, "").slice(0, 8);
+  if (!p.getProperty("OWNER_PIN")) p.setProperty("OWNER_PIN", make());
+  if (!p.getProperty("NANNY_PIN")) p.setProperty("NANNY_PIN", make());
+  const sh = sheet_("Passcodes");
+  sh.clear();
+  sh.getRange(1, 1, 4, 2).setValues([
+    ["Who", "Passcode"],
+    ["Alexandra (full access)", p.getProperty("OWNER_PIN")],
+    ["Nanny", p.getProperty("NANNY_PIN")],
+    ["Note", "Keep this tab private. To change a passcode, ask Claude."]
+  ]);
+  COLLS.forEach(sheet_);
+  setupCalendarSync();
 }
 
 /* ---------- Skylight / Google Calendar ---------- */
