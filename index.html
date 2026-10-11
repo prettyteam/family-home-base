@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Family Home Base</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: one column "home binder" with a sticky tab strip; each tab is a page of the binder. */
+:root{
+  --bg:#fbf6f4; --surface:#ffffff; --ink:#2b1d27; --muted:#7a6672; --line:#ecdfe0;
+  --accent:#9e3f66; --accent-ink:#ffffff; --accent-soft:#f7e6ed;
+  --good:#2f7d5b; --good-soft:#e3f2ea; --warn:#a8670f; --warn-soft:#fbefd9; --bad:#b0353c; --bad-soft:#f9e1e2;
+  --k0:#b34a74; --k1:#4f8a6e; --k2:#4d6fa3; --k3:#b0842a;
+  --display:"Bodoni Moda", "Didot", Georgia, serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#191317; --surface:#231b20; --ink:#f3e9ee; --muted:#b39faa; --line:#3a2d34;
+  --accent:#e58bb0; --accent-ink:#2a1420; --accent-soft:#3a2430;
+  --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224;
+  --k0:#e58bb0; --k1:#82c4a4; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#191317; --surface:#231b20; --ink:#f3e9ee; --muted:#b39faa; --line:#3a2d34;
+  --accent:#e58bb0; --accent-ink:#2a1420; --accent-soft:#3a2430;
+  --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224;
+  --k0:#e58bb0; --k1:#82c4a4; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:500;font-size:clamp(28px,6vw,40px);line-height:1.05;margin:0;letter-spacing:-.01em}
+h1 em{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0}
+h2{font-family:var(--display);font-weight:500;font-size:22px;margin:0;text-wrap:balance}
+h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
+.role{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--surface)}
+.seg button{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-top:18px;border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto}
+nav.tabs button{border:0;background:none;font:inherit;font-weight:500;color:var(--muted);padding:10px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-top:20px;display:grid;gap:24px}
+.banner{background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:20px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.list{list-style:none;margin:0;padding:0;display:grid}
+.list li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line);min-width:0}
+.list li:first-child{border-top:0}
+.grow{flex:1;min-width:0}
+.t{font-weight:500}
+.meta{color:var(--muted);font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--ink);white-space:nowrap}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.src{background:transparent;border:1px solid var(--line);color:var(--muted)}
+.ex{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px dashed var(--line);padding:0 6px;border-radius:4px}
+.btn{font:inherit;font-size:14px;font-weight:500;border-radius:8px;padding:8px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.small{padding:4px 10px;font-size:13px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--accent)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.check{width:20px;height:20px;accent-color:var(--accent);flex:none;margin-top:2px}
+.done .t{text-decoration:line-through;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-family:var(--display);font-size:28px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.1}
+.clock{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:12px;padding:16px}
+.clock .big{font-family:var(--display);font-size:24px}
+.week{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:8px;min-width:860px}
+.scroll{overflow-x:auto;padding-bottom:4px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;align-content:start;min-height:120px}
+.day.today{border-color:var(--accent)}
+.day .dh{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.act{border-left:3px solid var(--kc,var(--accent));padding:4px 0 4px 8px;font-size:13px;cursor:pointer;background:none;border-top:0;border-right:0;border-bottom:0;text-align:left;color:var(--ink);font-family:inherit}
+.act .meta{font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:0}
+.kids{display:flex;gap:6px;flex-wrap:wrap}
+.kids button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.kids button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.empty{color:var(--muted);font-size:14px;padding:8px 0}
+.note{font-size:13px;color:var(--muted);max-width:65ch}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:0;width:min(440px,calc(100vw - 32px))}
+dialog::backdrop{background:rgba(20,10,16,.45)}
+dialog form{padding:18px;display:grid;gap:12px}
+label.f{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+label.f input,label.f select,label.f textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+.actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.actions .left{margin-right:auto}
+.err{color:var(--bad);font-size:13px}
+@media (prefers-reduced-motion:no-preference){.btn,nav.tabs button{transition:background .15s,color .15s}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Family <em>Home Base</em></h1>
+      <p class="sub" id="todayLine">Loading…</p>
+    </div>
+    <div class="role" id="roleBox" hidden>
+      <span class="meta">Viewing as</span>
+      <div class="seg" role="group" aria-label="Viewing as">
+        <button id="asMom" aria-pressed="true">Alexandra</button>
+        <button id="asNanny" aria-pressed="false">Nanny</button>
+      </div>
+    </div>
+    <button class="btn ghost small" id="signOut" hidden>Sign out</button>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-tab="today" aria-selected="true">Today</button>
+    <button role="tab" data-tab="hours" aria-selected="false">Nanny hours</button>
+    <button role="tab" data-tab="school" aria-selected="false">School</button>
+    <button role="tab" data-tab="activities" aria-selected="false">Activities</button>
+    <button role="tab" data-tab="todos" aria-selected="false">To-dos</button>
+    <button role="tab" data-tab="notes" aria-selected="false">House notes</button>
+  </nav>
+
+  <main id="main">
+    <div class="panel"><p class="empty">Opening your home base… Once it connects, your nanny's schedule, the kids' schoolwork and the week's activities show up here.</p></div>
+  </main>
+</div>
+
+<dialog id="dlg"><form id="dlgForm" method="dialog"></form></dialog>
+
+<script>
+(function(){
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parseYmd = s => { const [y,m,d] = String(s).split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const DAYS_LONG = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const mondayOf = d => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const wd = (x.getDay()+6)%7; return addDays(x,-wd); };
+const toMin = t => { if(!t) return null; const [h,m] = t.split(":").map(Number); return h*60+m; };
+const fmtT = t => { if(!t) return ""; let [h,m] = t.split(":").map(Number); const ap = h>=12?"PM":"AM"; h = h%12||12; return h+":"+pad(m)+" "+ap; };
+const nowHM = () => { const d = new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); };
+const hrs = (a,b) => { const x = toMin(a), y = toMin(b); if(x==null||y==null) return 0; let d = y-x; if(d<0) d += 1440; return d/60; };
+const fmtH = h => (Math.round(h*100)/100).toFixed(h%1 ? 2 : 0).replace(/\.?0+$/,"") || "0";
+const money = n => "$" + (Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtDate = s => { const d = parseYmd(s); return DAYS[d.getDay()]+", "+d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
+const dueLabel = s => { const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
+  if(n<0) return ["Overdue","bad"]; if(n===0) return ["Due today","warn"]; if(n===1) return ["Due tomorrow","warn"]; return ["Due "+fmtDate(s),""]; };
+
+const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], loaded:{} };
+/* Paste the Google Apps Script web app URL here (see README). */
+const API_URL = "PASTE_WEB_APP_URL_HERE";
+let db = null, pin = "", isOwner = true, viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
+try { const t = localStorage.getItem("fhb-tab"); if(t) tab = t; } catch(e){}
+if(/^#(today|hours|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
+
+const kids = () => (S.settings && S.settings.kids) || [];
+const kidById = id => kids().find(k => k.id === id);
+const kidColor = id => { const i = kids().findIndex(k => k.id === id); return "var(--k"+((i<0?0:i)%4)+")"; };
+const kidName = id => (kidById(id) || {}).name || "Everyone";
+const nannyName = () => (S.settings && S.settings.nannyName) || "Nanny";
+const isMom = () => viewAs === "mom";
+
+/* ---------- data (Google Sheet via Apps Script) ---------- */
+const COLLS = ["shifts","assignments","grades","activities","todos"];
+async function api(body){
+  const r = await fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({pin}, body))});
+  const j = await r.json(); if(!j.ok) throw new Error(j.error || "Something went wrong"); return j;
+}
+async function refresh(){
+  const j = await api({action:"list"});
+  S.settings = j.data.settings && j.data.settings.find(x=>x._id==="main") || null;
+  COLLS.forEach(c => S[c] = j.data[c] || []);
+  ["settings"].concat(COLLS).forEach(c => S.loaded[c] = true);
+  return j.role;
+}
+function applyLocal(coll, id, data, mode){
+  if(coll === "settings"){ S.settings = mode==="delete" ? null : Object.assign(mode==="update"?Object.assign({}, S.settings):{}, data, {_id:"main"}); return; }
+  const arr = S[coll], i = arr.findIndex(x=>x._id===id);
+  if(mode === "delete"){ if(i>=0) arr.splice(i,1); return; }
+  const row = Object.assign(mode==="update" && i>=0 ? Object.assign({}, arr[i]) : {}, data, {_id:id});
+  if(i>=0) arr[i] = row; else arr.push(row);
+}
+async function write(op, coll, id, data){
+  if(!db || readOnly) return;
+  try { const j = await api({action:op, coll, id, data}); applyLocal(coll, j.id || id, data, op); render(); }
+  catch(e){ toast("Couldn't save that. "+e.message+" Check your connection and try again."); }
+}
+const save = (coll, id, data) => write("set", coll, id, data);
+const patch = (coll, id, data) => write("update", coll, id, data);
+const remove = (coll, id) => write("delete", coll, id);
+function toast(msg){ const m = $("#main"); const d = document.createElement("div"); d.className = "banner"; d.textContent = msg; m.prepend(d); setTimeout(()=>d.remove(), 5000); }
+
+/* ---------- form dialog ---------- */
+function openForm(title, fields, values, onSave, onDelete){
+  const f = $("#dlgForm"), dlg = $("#dlg");
+  f.innerHTML = `<h2>${esc(title)}</h2>` + fields.map(fd => {
+    const v = values[fd.key] ?? fd.def ?? "";
+    const id = "fld-"+fd.key;
+    if(fd.type === "select") return `<label class="f" for="${id}">${esc(fd.label)}<select id="${id}" name="${fd.key}">${fd.options.map(o=>`<option value="${esc(o[0])}" ${String(o[0])===String(v)?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>`;
+    if(fd.type === "textarea") return `<label class="f" for="${id}">${esc(fd.label)}<textarea id="${id}" name="${fd.key}" rows="${fd.rows||4}" placeholder="${esc(fd.ph||"")}">${esc(v)}</textarea></label>`;
+    return `<label class="f" for="${id}">${esc(fd.label)}<input id="${id}" name="${fd.key}" type="${fd.type||"text"}" value="${esc(v)}" ${fd.req?"required":""} ${fd.step?`step="${fd.step}"`:""} placeholder="${esc(fd.ph||"")}"></label>`;
+  }).join("") + `<p class="err" id="dlgErr" hidden></p><div class="actions">${onDelete?`<button type="button" class="btn ghost left" id="dlgDel">Delete</button>`:""}<button type="button" class="btn" id="dlgCancel">Cancel</button><button type="submit" class="btn primary">Save</button></div>`;
+  $("#dlgCancel").onclick = () => dlg.close();
+  if(onDelete){ const b = $("#dlgDel"); b.onclick = () => { if(b.dataset.sure){ dlg.close(); onDelete(); } else { b.dataset.sure = 1; b.textContent = "Tap again to delete"; } }; }
+  f.onsubmit = e => { e.preventDefault(); const out = {};
+    fields.forEach(fd => { let v = f.elements[fd.key].value; if(fd.type === "number") v = v === "" ? null : Number(v); out[fd.key] = v; });
+    const err = onSave(out); if(err){ const p = $("#dlgErr"); p.textContent = err; p.hidden = false; return; } dlg.close(); };
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+}
+const kidOptions = (withAll) => (withAll?[["all","Everyone"]]:[]).concat(kids().map(k=>[k.id,k.name]));
+
+/* ---------- derived ---------- */
+function weekShifts(start){ const a = ymd(start), b = ymd(addDays(start,6)); return S.shifts.filter(s => s.date >= a && s.date <= b).sort((x,y)=> (x.date+x.start).localeCompare(y.date+y.start)); }
+function workedHours(s){ return s.inAt && s.outAt ? hrs(s.inAt, s.outAt) - (Number(s.breakMin)||0)/60 : 0; }
+function payFor(list){
+  const st = S.settings || {}; const worked = list.reduce((t,s)=>t+workedHours(s),0);
+  if(st.payType === "weekly") return { worked, pay: Number(st.weeklyPay)||0, how: "Weekly salary" };
+  const rate = Number(st.rate)||0; let pay = worked*rate, how = money(rate)+"/hr";
+  if(st.overtime === "yes" && worked > 40){ pay = 40*rate + (worked-40)*rate*1.5; how += ", 1.5× after 40 hrs"; }
+  return { worked, pay, how };
+}
+function todayShift(){ const t = ymd(new Date()); return S.shifts.find(s => s.date === t); }
+
+/* ---------- renderers ---------- */
+function exTag(o){ return o && o.example ? ` <span class="ex">Example</span>` : ""; }
+
+function renderClock(){
+  const s = todayShift();
+  let state, btn = "";
+  if(s && s.inAt && !s.outAt){ state = `On the clock since <span class="num">${fmtT(s.inAt)}</span>`; btn = `<button class="btn primary" id="clockOut">Clock out</button>`; }
+  else if(s && s.outAt){ state = `Clocked out at <span class="num">${fmtT(s.outAt)}</span> · ${fmtH(workedHours(s))} hrs today`; }
+  else if(s){ state = `Scheduled <span class="num">${fmtT(s.start)} – ${fmtT(s.end)}</span>`; btn = `<button class="btn primary" id="clockIn">Clock in</button>`; }
+  else { state = "No shift scheduled today"; btn = `<button class="btn" id="clockIn">Clock in anyway</button>`; }
+  return `<div class="clock"><div><h3>${esc(nannyName())} · today</h3><div class="big">${state}</div></div>${readOnly?"":btn}</div>`;
+}
+function bindClock(){
+  const ci = $("#clockIn"), co = $("#clockOut");
+  if(ci) ci.onclick = () => { const s = todayShift(); if(s) patch("shifts", s._id, {inAt: nowHM()}); else save("shifts", null, {date: ymd(new Date()), start:"", end:"", inAt: nowHM(), outAt:"", note:"Unscheduled"}); };
+  if(co) co.onclick = () => { const s = todayShift(); if(s) patch("shifts", s._id, {outAt: nowHM()}); };
+}
+
+function renderToday(){
+  const t = new Date(), tY = ymd(t), wd = t.getDay();
+  const acts = S.activities.filter(a => Number(a.day) === wd).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
+  const soon = ymd(addDays(t,3));
+  const due = S.assignments.filter(a => !a.done && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
+  const todos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom"));
+  return `${renderClock()}
+  <div class="grid2">
+    <section class="panel"><h3>Today's activities</h3>${acts.length ? `<ul class="list">${acts.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}${exTag(a)}</div><div class="meta num">${esc(kidName(a.kid))} · ${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?" · "+esc(a.location):""}</div></div>${a.driver?`<span class="chip">${esc(a.driver)} drives</span>`:""}</li>`).join("")}</ul>` : `<p class="empty">Nothing on the calendar for ${DAYS_LONG[wd]}.</p>`}</section>
+    <section class="panel"><h3>Schoolwork due in the next 3 days</h3>${due.length ? `<ul class="list">${due.map(assignLi).join("")}</ul>` : `<p class="empty">Nothing due soon. Nice.</p>`}</section>
+  </div>
+  <section class="panel"><h3>Open to-dos</h3>${todos.length ? `<ul class="list">${todos.map(todoLi).join("")}</ul>` : `<p class="empty">All caught up.</p>`}</section>`;
+}
+
+function assignLi(a){
+  const [lab, cls] = dueLabel(a.due);
+  return `<li class="${a.done?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${a.done?"checked":""} ${readOnly?"disabled":""} aria-label="Mark ${esc(a.title)} done"><div class="grow"><div class="t">${esc(a.title)}${exTag(a)}</div><div class="meta"><span style="color:${kidColor(a.kid)}">●</span> ${esc(kidName(a.kid))} · ${esc(a.cls)}${a.notes?" · "+esc(a.notes):""}</div></div><div style="display:grid;gap:4px;justify-items:end"><span class="chip ${a.done?"good":cls}">${a.done?"Done":lab}</span><span class="chip src">${esc(a.source||"Added by hand")}</span>${isMom()&&!readOnly?`<button class="btn ghost small" data-edit-assign="${a._id}">Edit</button>`:""}</div></li>`;
+}
+function todoLi(x){
+  const who = x.who === "nanny" ? nannyName() : x.who === "mom" ? "Alexandra" : "Either";
+  return `<li class="${x.done?"done":""}"><input type="checkbox" class="check" data-todo="${x._id}" ${x.done?"checked":""} ${readOnly?"disabled":""} aria-label="Mark done"><div class="grow"><div class="t">${esc(x.text)}${exTag(x)}</div><div class="meta">${esc(who)}${x.due?" · by "+fmtDate(x.due):""}${x.kid&&x.kid!=="all"?" · "+esc(kidName(x.kid)):""}</div></div>${!readOnly?`<button class="btn ghost small" data-edit-todo="${x._id}">Edit</button>`:""}</li>`;
+}
+
+function renderHours(){
+  const list = weekShifts(weekStart), p = payFor(list);
+  const sched = list.reduce((t,s)=>t+hrs(s.start,s.end),0);
+  const showPay = isMom() || (S.settings && S.settings.showPayToNanny === "yes");
+  const st = S.settings || {};
+  return `${renderClock()}
+  <div class="row"><div class="row" style="gap:6px"><button class="btn small" id="wkPrev" aria-label="Previous week">‹</button><h2>Week of ${weekStart.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</h2><button class="btn small" id="wkNext" aria-label="Next week">›</button></div>
+  ${isMom()&&!readOnly?`<div class="row" style="gap:8px"><button class="btn" id="copyWeek">Copy last week's schedule</button><button class="btn primary" id="addShift">Add shift</button></div>`:""}</div>
+  <div class="stats">
+    <div class="stat"><span class="meta">Scheduled</span><b>${fmtH(sched)}</b><span class="meta">hours</span></div>
+    <div class="stat"><span class="meta">Worked</span><b>${fmtH(p.worked)}</b><span class="meta">hours clocked</span></div>
+    ${showPay?`<div class="stat"><span class="meta">Pay this week</span><b>${money(p.pay)}</b><span class="meta">${esc(p.how)}</span></div>`:""}
+  </div>
+  <section class="panel"><div class="scroll"><table>
+    <thead><tr><th>Day</th><th>Scheduled</th><th>Clocked</th><th class="num">Hours</th><th>Note</th><th></th></tr></thead>
+    <tbody>${list.length ? list.map(s=>`<tr><td>${fmtDate(s.date)}${exTag(s)}</td><td class="num">${s.start?fmtT(s.start)+" – "+fmtT(s.end):"—"}</td><td class="num">${s.inAt?fmtT(s.inAt):"—"} – ${s.outAt?fmtT(s.outAt):(s.inAt?"on now":"—")}</td><td class="num">${fmtH(s.outAt?workedHours(s):hrs(s.start,s.end))}${s.outAt?"":" <span class='meta'>sched.</span>"}</td><td>${esc(s.note||"")}</td><td>${!readOnly?`<button class="btn ghost small" data-edit-shift="${s._id}">${isMom()?"Edit":"Fix time"}</button>`:""}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No shifts this week yet.${isMom()?" Add one, or copy last week's schedule.":""}</td></tr>`}</tbody>
+  </table></div></section>
+  ${isMom()?`<section class="panel"><div class="row"><h3 style="margin:0">Pay setup</h3>${!readOnly?`<button class="btn small" id="paySetup">Edit pay setup</button>`:""}</div><p class="note">${st.payType==="weekly"?`Weekly salary of ${money(Number(st.weeklyPay)||0)}.`:`Hourly at ${money(Number(st.rate)||0)}${st.overtime==="yes"?", with 1.5× after 40 hours":""}.`} ${st.showPayToNanny==="yes"?"Your nanny can see the pay total.":"Your nanny sees her hours but not the pay total."} Hours worked subtract any unpaid break minutes entered on a shift.</p></section>`:""}`;
+}
+
+function shiftForm(s){
+  const mom = isMom();
+  const fields = mom ? [
+    {key:"date",label:"Date",type:"date",req:true},{key:"start",label:"Scheduled start",type:"time"},{key:"end",label:"Scheduled end",type:"time"},
+    {key:"inAt",label:"Clocked in",type:"time"},{key:"outAt",label:"Clocked out",type:"time"},{key:"breakMin",label:"Unpaid break (minutes)",type:"number",step:"5"},{key:"note",label:"Note",ph:"e.g. Date night, school half day"}]
+  : [{key:"inAt",label:"Clocked in",type:"time"},{key:"outAt",label:"Clocked out",type:"time"},{key:"note",label:"Note for Alexandra",ph:"e.g. Forgot to clock out, left at 6"}];
+  openForm(s ? (mom?"Edit shift":"Fix my times") : "Add shift", fields, s || {date: ymd(new Date())}, v => {
+    if(mom && !v.date) return "Pick a date.";
+    const data = Object.assign({}, s ? strip(s) : {inAt:"",outAt:""}, v); delete data.example;
+    save("shifts", s ? s._id : null, data);
+  }, s && mom ? () => remove("shifts", s._id) : null);
+}
+const strip = o => { const c = Object.assign({}, o); delete c._id; return c; };
+
+function renderSchool(){
+  const ks = kids();
+  const f = a => kidFilter === "all" || a.kid === kidFilter;
+  const todayY = ymd(new Date());
+  const open = S.assignments.filter(a => f(a) && !a.done).sort((a,b)=>a.due.localeCompare(b.due));
+  const recent = S.assignments.filter(a => f(a) && a.done && a.due >= ymd(addDays(new Date(),-14))).sort((a,b)=>b.due.localeCompare(a.due));
+  const grades = S.grades.filter(f).sort((a,b)=> (kidName(a.kid)+a.cls).localeCompare(kidName(b.kid)+b.cls));
+  const gChip = g => { const n = parseFloat(g); if(isNaN(n)) return ""; return n>=90?"good":n>=80?"":n>=70?"warn":"bad"; };
+  const lastSync = S.settings && S.settings.lastSync;
+  return `<div class="row"><div class="kids" role="group" aria-label="Show"><button data-kid="all" aria-pressed="${kidFilter==="all"}">All kids</button>${ks.map(k=>`<button data-kid="${k.id}" aria-pressed="${kidFilter===k.id}"><span class="dot" style="margin:0;background:${kidColor(k.id)}"></span>${esc(k.name)}</button>`).join("")}</div>
+  ${!readOnly?`<button class="btn primary" id="addAssign">Add assignment</button>`:""}</div>
+  <p class="note">${lastSync?`Last updated from Google Classroom and Genesis: ${esc(lastSync)}.`:"Assignments and grades are entered by hand for now. Ask Claude in your project to pull the latest from Google Classroom and the school portal, and they'll appear here."}</p>
+  <div class="grid2">
+    <section class="panel"><h3>Upcoming &amp; overdue</h3>${open.length?`<ul class="list">${open.map(assignLi).join("")}</ul>`:`<p class="empty">No open assignments.</p>`}
+    ${recent.length?`<h3 style="margin-top:16px">Finished recently</h3><ul class="list">${recent.map(assignLi).join("")}</ul>`:""}</section>
+    <section class="panel"><div class="row"><h3 style="margin:0">Grades</h3>${isMom()&&!readOnly?`<button class="btn small" id="addGrade">Add class grade</button>`:""}</div>
+    ${grades.length?`<div class="scroll"><table><thead><tr><th>Child</th><th>Class</th><th>Grade</th><th>Updated</th></tr></thead><tbody>${grades.map(g=>`<tr ${isMom()&&!readOnly?`data-edit-grade="${g._id}" style="cursor:pointer"`:""}><td><span style="color:${kidColor(g.kid)}">●</span> ${esc(kidName(g.kid))}</td><td>${esc(g.cls)}${exTag(g)}</td><td><span class="chip ${gChip(g.grade)} num">${esc(g.grade)}</span></td><td class="meta num">${g.updated?fmtDate(g.updated):""}</td></tr>`).join("")}</tbody></table></div>`:`<p class="empty">No grades yet.</p>`}
+    <p class="note" style="margin-top:8px">Green is 90 and up, amber is 70 to 79, red is under 70.</p></section>
+  </div>`;
+}
+function assignForm(a){
+  if(!kids().length) return toast("Add your kids in Family setup first.");
+  openForm(a?"Edit assignment":"Add assignment", [
+    {key:"kid",label:"Child",type:"select",options:kidOptions(false)},{key:"title",label:"Assignment",req:true,ph:"e.g. Chapter 4 reading log"},
+    {key:"cls",label:"Class",ph:"e.g. ELA"},{key:"due",label:"Due",type:"date",req:true},
+    {key:"source",label:"Where it came from",type:"select",options:[["Google Classroom","Google Classroom"],["Genesis portal","Genesis portal"],["Added by hand","Added by hand"]],def:"Added by hand"},
+    {key:"notes",label:"Notes",ph:"e.g. Needs poster board"}], a || {kid: kidFilter!=="all"?kidFilter:(kids()[0]||{}).id}, v => {
+      if(!v.title || !v.due) return "Add a title and a due date.";
+      const d = Object.assign({}, a?strip(a):{done:false}, v); delete d.example; save("assignments", a?a._id:null, d);
+    }, a && isMom() ? () => remove("assignments", a._id) : null);
+}
+function gradeForm(g){
+  if(!kids().length) return toast("Add your kids in Family setup first.");
+  openForm(g?"Edit grade":"Add class grade", [{key:"kid",label:"Child",type:"select",options:kidOptions(false)},{key:"cls",label:"Class",req:true},{key:"grade",label:"Current grade",ph:"e.g. 92 or B+"},{key:"updated",label:"As of",type:"date"}],
+    g || {kid:(kids()[0]||{}).id, updated: ymd(new Date())}, v => { if(!v.cls) return "Add the class name."; const d = Object.assign({}, g?strip(g):{}, v); delete d.example; save("grades", g?g._id:null, d); },
+    g ? () => remove("grades", g._id) : null);
+}
+
+function renderActivities(){
+  const order = [1,2,3,4,5,6,0], tw = new Date().getDay();
+  const f = a => kidFilter === "all" || a.kid === kidFilter || a.kid === "all";
+  return `<div class="row"><div class="kids" role="group" aria-label="Show"><button data-kid="all" aria-pressed="${kidFilter==="all"}">All kids</button>${kids().map(k=>`<button data-kid="${k.id}" aria-pressed="${kidFilter===k.id}"><span class="dot" style="margin:0;background:${kidColor(k.id)}"></span>${esc(k.name)}</button>`).join("")}</div>${isMom()&&!readOnly?`<button class="btn primary" id="addAct">Add activity</button>`:""}</div>
+  <div class="scroll"><div class="week">${order.map(d=>{ const list = S.activities.filter(a=>Number(a.day)===d && f(a)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
+    return `<div class="day ${d===tw?"today":""}"><div class="dh">${DAYS[d]}${d===tw?" · today":""}</div>${list.map(a=>`<button class="act" style="--kc:${kidColor(a.kid)}" data-edit-act="${a._id}" ${!isMom()||readOnly?"disabled":""}><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))}<br>${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?"<br>"+esc(a.location):""}${a.driver?"<br>"+esc(a.driver)+" drives":""}</div>${a.example?`<span class="ex">Example</span>`:""}</button>`).join("") || `<span class="meta">Free</span>`}</div>`; }).join("")}</div></div>
+  <p class="note">This is the repeating weekly schedule. One-off games, practices that move, and half days go in Notes &amp; to-dos with a date.</p>`;
+}
+function actForm(a){
+  openForm(a?"Edit activity":"Add activity", [
+    {key:"kid",label:"Who",type:"select",options:kidOptions(true)},{key:"name",label:"Activity",req:true,ph:"e.g. Soccer practice"},
+    {key:"day",label:"Day",type:"select",options:[1,2,3,4,5,6,0].map(d=>[d,DAYS_LONG[d]])},{key:"start",label:"Starts",type:"time"},{key:"end",label:"Ends",type:"time"},
+    {key:"location",label:"Where",ph:"e.g. Hammonton Lake Park"},{key:"driver",label:"Who drives",type:"select",options:[["",""],["Alexandra","Alexandra"],[nannyName(),nannyName()],["Carpool","Carpool"]]},
+    {key:"bring",label:"What to bring",ph:"e.g. Cleats, water bottle"}], a || {day: new Date().getDay(), kid:"all"}, v => {
+      if(!v.name) return "Name the activity."; const d = Object.assign({}, a?strip(a):{}, v); d.day = Number(d.day); delete d.example; save("activities", a?a._id:null, d);
+    }, a ? () => remove("activities", a._id) : null);
+}
+
+const HIDE_DONE_AFTER_DAYS = 2;
+const recentlyDone = x => x.done && (!x.doneAt || (Date.now() - new Date(x.doneAt).getTime()) < HIDE_DONE_AFTER_DAYS*864e5);
+function renderTodos(){
+  const mine = x => isMom() || x.who !== "mom";
+  const open = S.todos.filter(x=>!x.done && mine(x)).sort((a,b)=>(a.due||"9").localeCompare(b.due||"9"));
+  const done = S.todos.filter(x=>recentlyDone(x) && mine(x)).sort((a,b)=>(b.doneAt||"").localeCompare(a.doneAt||""));
+  return `<section class="panel">
+    ${!readOnly?`<form id="quickAdd" class="row" style="gap:8px;margin-bottom:8px"><label class="f grow" for="qaText" style="min-width:200px">Add to the list<input id="qaText" placeholder="e.g. Pack Leo's swim bag" autocomplete="off"></label>
+      <label class="f" for="qaWho">For<select id="qaWho">${[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]].map(o=>`<option value="${o[0]}" ${o[0]===(isMom()?"nanny":"mom")?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>
+      <button class="btn primary" type="submit" style="align-self:end">Add</button></form>`:""}
+    ${open.length?`<ul class="list">${open.map(todoLi).join("")}</ul>`:`<p class="empty">Nothing on the list. Everything's checked off.</p>`}
+    ${done.length?`<h3 style="margin-top:16px">Checked off</h3><ul class="list">${done.map(todoLi).join("")}</ul><p class="note">Checked items drop off the list after ${HIDE_DONE_AFTER_DAYS} days. Uncheck one to bring it back.</p>`:""}
+  </section>`;
+}
+function renderNotes(){
+  const h = (S.settings && S.settings.houseNotes) || "";
+  return `<section class="panel"><div class="row"><h3 style="margin:0">House notes</h3>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div>
+    ${h?`<div style="white-space:pre-wrap;max-width:65ch">${esc(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else your nanny should always have handy.</p>`}
+    <p class="note" style="margin-top:12px">Please keep passwords and account logins out of this app.</p></section>`;
+}
+function todoForm(x){
+  openForm(x?"Edit to-do":"Add to-do", [{key:"text",label:"To-do",req:true,ph:"e.g. Sign Ava's field trip form"},{key:"who",label:"For",type:"select",options:[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]]},
+    {key:"kid",label:"About",type:"select",options:kidOptions(true)},{key:"due",label:"By (optional)",type:"date"}], x || {who: isMom()?"nanny":"mom", kid:"all"}, v => {
+      if(!v.text) return "Write the to-do."; const d = Object.assign({}, x?strip(x):{done:false}, v); delete d.example; save("todos", x?x._id:null, d);
+    }, x ? () => remove("todos", x._id) : null);
+}
+
+function setupForm(){
+  const st = S.settings || {};
+  openForm("Family setup", [
+    {key:"nannyName",label:"Nanny's name"},
+    {key:"kidsText",label:"Kids (one per line: name, grade, school)",type:"textarea",ph:"Ava, 6th, Hammonton Middle School"},
+    {key:"payType",label:"How you pay",type:"select",options:[["hourly","Hourly"],["weekly","Weekly salary"]]},
+    {key:"rate",label:"Hourly rate ($)",type:"number",step:"0.25"},{key:"weeklyPay",label:"Weekly salary ($)",type:"number",step:"1"},
+    {key:"overtime",label:"Overtime",type:"select",options:[["no","No overtime"],["yes","1.5× after 40 hours"]]},
+    {key:"showPayToNanny",label:"Nanny can see pay total",type:"select",options:[["no","No"],["yes","Yes"]]}],
+    Object.assign({}, st, {kidsText: kids().map(k=>[k.name,k.grade,k.school].filter(Boolean).join(", ")).join("\n")}), v => {
+      const old = kids();
+      const ks = v.kidsText.split("\n").map(l=>l.trim()).filter(Boolean).map((l,i)=>{ const [name,grade,school] = l.split(",").map(s=>s.trim()); const prev = old.find(k=>k.name===name) || old[i]; return {id: prev ? prev.id : "k"+Date.now().toString(36)+i, name, grade:grade||"", school:school||""}; });
+      const d = Object.assign({}, st, v, {kids: ks}); delete d.kidsText; d.example = false; save("settings", "main", d);
+    });
+}
+
+function render(){
+  const t = new Date();
+  $("#signOut").hidden = !db;
+  $("#todayLine").textContent = DAYS_LONG[t.getDay()] + ", " + t.toLocaleDateString(undefined,{month:"long",day:"numeric"}) + (kids().length ? " · " + kids().map(k=>k.name).join(", ") : "");
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab===tab)));
+  const m = $("#main");
+  if(!db){ renderLogin(); return; }
+  const ready = ["settings","shifts","assignments","grades","activities","todos"].every(k=>S.loaded[k]);
+  if(!ready){ m.innerHTML = `<div class="panel"><p class="empty">Loading the family schedule…</p></div>`; return; }
+  let top = "";
+  if(!S.settings) top = `<div class="banner"><span>Welcome. Start by adding your nanny's name, your kids and how you pay.</span>${isMom()&&!readOnly?`<button class="btn primary small" id="setupBtn">Family setup</button>`:""}</div>`;
+  else if(S.settings.example) top = `<div class="banner"><span>You're looking at example entries so you can see how it works. Tap Edit on anything to change it, or open Family setup to add your real details.</span>${isMom()&&!readOnly?`<button class="btn small" id="setupBtn">Family setup</button>`:""}</div>`;
+  else if(isMom() && !readOnly) top = `<div class="row" style="justify-content:flex-end"><button class="btn ghost small" id="setupBtn">Family setup</button></div>`;
+
+  const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes}[tab]();
+  m.innerHTML = top + body;
+  bind();
+}
+
+function bind(){
+  const on = (sel, fn) => { const el = $(sel); if(el) el.onclick = fn; };
+  on("#setupBtn", setupForm); bindClock();
+  on("#wkPrev", () => { weekStart = addDays(weekStart,-7); render(); });
+  on("#wkNext", () => { weekStart = addDays(weekStart,7); render(); });
+  on("#addShift", () => shiftForm(null));
+  on("#paySetup", setupForm);
+  on("#copyWeek", async () => { const prev = weekShifts(addDays(weekStart,-7)); if(!prev.length) return toast("Last week has no shifts to copy.");
+    const have = new Set(weekShifts(weekStart).map(s=>s.date));
+    for(const s of prev){ const nd = ymd(addDays(parseYmd(s.date),7)); if(have.has(nd)) continue; await save("shifts", null, {date:nd,start:s.start,end:s.end,inAt:"",outAt:"",note:s.note||""}); } });
+  on("#addAssign", () => assignForm(null)); on("#addGrade", () => gradeForm(null)); on("#addAct", () => actForm(null)); on("#addTodo", () => todoForm(null));
+  on("#editHouse", () => openForm("House notes", [{key:"houseNotes",label:"Notes your nanny should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
+  document.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { kidFilter = b.dataset.kid; render(); });
+  document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
+  document.querySelectorAll("[data-todo]").forEach(c => c.onchange = () => patch("todos", c.dataset.todo, {done: c.checked, doneAt: c.checked ? new Date().toISOString() : ""}));
+  const qa = $("#quickAdd"); if(qa) qa.onsubmit = e => { e.preventDefault(); const t = $("#qaText").value.trim(); if(!t) return;
+    save("todos", null, {text:t, who: $("#qaWho").value, kid:"all", due:"", done:false, doneAt:""}); $("#qaText").value = ""; };
+  const find = (arr,id) => arr.find(x=>x._id===id);
+  document.querySelectorAll("[data-edit-shift]").forEach(b => b.onclick = () => shiftForm(find(S.shifts,b.dataset.editShift)));
+  document.querySelectorAll("[data-edit-assign]").forEach(b => b.onclick = () => assignForm(find(S.assignments,b.dataset.editAssign)));
+  document.querySelectorAll("[data-edit-grade]").forEach(b => b.onclick = () => gradeForm(find(S.grades,b.dataset.editGrade)));
+  document.querySelectorAll("[data-edit-act]").forEach(b => b.onclick = () => actForm(find(S.activities,b.dataset.editAct)));
+  document.querySelectorAll("[data-edit-todo]").forEach(b => b.onclick = () => todoForm(find(S.todos,b.dataset.editTodo)));
+}
+
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; try{ localStorage.setItem("fhb-tab", tab); }catch(e){} render(); });
+function setView(v){ viewAs = v; $("#asMom").setAttribute("aria-pressed", String(v==="mom")); $("#asNanny").setAttribute("aria-pressed", String(v==="nanny")); render(); }
+$("#asMom").onclick = () => setView("mom"); $("#asNanny").onclick = () => setView("nanny");
+
+function renderLogin(msg){
+  $("#roleBox").hidden = true;
+  $("#main").innerHTML = `<section class="panel" style="max-width:420px"><h2>Sign in</h2><p class="note">Enter your family passcode to open the schedule.</p>
+  <form id="pinForm" style="display:grid;gap:10px;margin-top:8px"><label class="f" for="pinIn">Passcode<input id="pinIn" type="password" autocomplete="current-password" required></label>
+  ${msg?`<p class="err">${esc(msg)}</p>`:""}<button class="btn primary" type="submit">Open</button></form></section>`;
+  $("#pinForm").onsubmit = e => { e.preventDefault(); signIn($("#pinIn").value.trim(), true); };
+}
+async function signIn(p, remember){
+  pin = p; $("#main").innerHTML = `<div class="panel"><p class="empty">Loading the family schedule…</p></div>`;
+  try {
+    const role = await refresh();
+    db = true; isOwner = role === "mom"; viewAs = isOwner ? "mom" : "nanny"; $("#roleBox").hidden = !isOwner;
+    if(remember){ try { localStorage.setItem("fhb-pin", pin); } catch(e){} }
+    render();
+  } catch(e){
+    db = null; pin = ""; try { localStorage.removeItem("fhb-pin"); } catch(_){}
+    renderLogin(/bad_pin|locked/.test(e.message) ? (e.message==="locked" ? "Too many wrong tries. Wait 15 minutes and try again." : "That passcode didn't work.") : "Couldn't reach the family schedule. Check your connection.");
+  }
+}
+$("#signOut").onclick = () => { try { localStorage.removeItem("fhb-pin"); } catch(e){} db = null; pin = ""; render(); };
+setInterval(() => { if(db && document.visibilityState === "visible" && !$("#dlg").open) refresh().then(render).catch(()=>{}); }, 30000);
+document.addEventListener("visibilitychange", () => { if(db && document.visibilityState === "visible") refresh().then(render).catch(()=>{}); });
+let saved = ""; try { saved = localStorage.getItem("fhb-pin") || ""; } catch(e){}
+if(API_URL.indexOf("http") !== 0) $("#main").innerHTML = `<div class="panel"><p class="empty">Almost ready. The Google Sheet connection hasn't been added yet (see README).</p></div>`;
+else if(saved) signIn(saved, false); else renderLogin();
+})();
+</script>
+</body>
+</html>
