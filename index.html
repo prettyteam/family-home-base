@@ -151,7 +151,7 @@ const hrs = (a,b) => { const x = toMin(a), y = toMin(b); if(x==null||y==null) re
 const fmtH = h => (Math.round(h*100)/100).toFixed(h%1 ? 2 : 0).replace(/\.?0+$/,"") || "0";
 const money = n => "$" + (Math.round(n*100)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtDate = s => { const d = parseYmd(s); return DAYS[d.getDay()]+", "+d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); };
-const dueLabel = s => { const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
+const dueLabel = s => { if(!s) return ["No due date",""]; const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
   if(n<0) return ["Overdue","bad"]; if(n===0) return ["Due today","warn"]; if(n===1) return ["Due tomorrow","warn"]; return ["Due "+fmtDate(s),""]; };
 
 const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], games:[], loaded:{} };
@@ -254,7 +254,7 @@ function renderToday(){
   const t = new Date(), tY = ymd(t), wd = t.getDay();
   const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
   const soon = ymd(addDays(t,3));
-  const due = S.assignments.filter(a => !a.done && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
+  const due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
   const todos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom"));
   return `${renderClock()}
   <div class="grid2">
@@ -312,7 +312,7 @@ function renderSchool(){
   const ks = kids();
   const f = a => kidFilter === "all" || a.kid === kidFilter;
   const todayY = ymd(new Date());
-  const open = S.assignments.filter(a => f(a) && !a.done).sort((a,b)=>a.due.localeCompare(b.due));
+  const open = S.assignments.filter(a => f(a) && !a.done).sort((a,b)=>(a.due||"9999").localeCompare(b.due||"9999"));
   const recent = S.assignments.filter(a => f(a) && a.done && a.due >= ymd(addDays(new Date(),-14))).sort((a,b)=>b.due.localeCompare(a.due));
   const grades = S.grades.filter(f).sort((a,b)=> (kidName(a.kid)+a.cls).localeCompare(kidName(b.kid)+b.cls));
   const gChip = g => { const n = parseFloat(g); if(isNaN(n)) return ""; return n>=90?"good":n>=80?"":n>=70?"warn":"bad"; };
