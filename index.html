@@ -123,7 +123,7 @@ label.f input,label.f select,label.f textarea{font:inherit;font-size:15px;color:
     <button role="tab" data-tab="school" aria-selected="false">School</button>
     <button role="tab" data-tab="activities" aria-selected="false">Activities</button>
     <button role="tab" data-tab="todos" aria-selected="false">To-dos</button>
-    <button role="tab" data-tab="notes" aria-selected="false">House notes</button>
+    <button role="tab" data-tab="notes" aria-selected="false">Family Facts</button>
   </nav>
 
   <main id="main">
@@ -391,7 +391,7 @@ function renderTodos(){
 }
 function renderNotes(){
   const h = (S.settings && S.settings.houseNotes) || "";
-  return `<section class="panel"><div class="row"><h3 style="margin:0">House notes</h3>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div>
+  return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div>
     ${h?`<div style="white-space:pre-wrap;max-width:65ch">${esc(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else your nanny should always have handy.</p>`}
     <p class="note" style="margin-top:12px">Please keep passwords and account logins out of this app.</p></section>`;
 }
@@ -452,7 +452,7 @@ function bind(){
     const have = new Set(weekShifts(weekStart).map(s=>s.date));
     for(const s of prev){ const nd = ymd(addDays(parseYmd(s.date),7)); if(have.has(nd)) continue; await save("shifts", null, {date:nd,start:s.start,end:s.end,inAt:"",outAt:"",note:s.note||""}); } });
   on("#addAssign", () => assignForm(null)); on("#addGrade", () => gradeForm(null)); on("#addAct", () => actForm(null)); on("#addTodo", () => todoForm(null));
-  on("#editHouse", () => openForm("House notes", [{key:"houseNotes",label:"Notes your nanny should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
+  on("#editHouse", () => openForm("Family Facts", [{key:"houseNotes",label:"Notes your nanny should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
   document.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { kidFilter = b.dataset.kid; render(); });
   document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
   document.querySelectorAll("[data-todo]").forEach(c => c.onchange = () => patch("todos", c.dataset.todo, {done: c.checked, doneAt: c.checked ? new Date().toISOString() : ""}));
