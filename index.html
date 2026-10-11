@@ -221,9 +221,11 @@ const kidOptions = (withAll) => (withAll?[["all","Everyone"]]:[]).concat(kids().
 /* ---------- derived ---------- */
 function weekShifts(start){ const a = ymd(start), b = ymd(addDays(start,6)); return S.shifts.filter(s => s.date >= a && s.date <= b).sort((x,y)=> (x.date+x.start).localeCompare(y.date+y.start)); }
 function workedHours(s){ return s.inAt && s.outAt ? hrs(s.inAt, s.outAt) - (Number(s.breakMin)||0)/60 : 0; }
-function payFor(list){
+const bonusWeek = wk => ((S.settings && S.settings.bonusWeeks) || []).indexOf(ymd(wk)) >= 0;
+function payFor(list, wk){
   const st = S.settings || {}; const worked = list.reduce((t,s)=>t+workedHours(s),0);
-  if(st.payType === "weekly") return { worked, pay: Number(st.weeklyPay)||0, how: "Weekly salary" };
+  const bonus = wk && bonusWeek(wk) ? (Number(st.bonusAmount)||0) : 0;
+  if(st.payType === "weekly") return { worked, pay: (Number(st.weeklyPay)||0) + bonus, how: bonus ? money(Number(st.weeklyPay)||0)+" + "+money(bonus)+" extra tasks" : "Weekly pay" + (st.payNote ? " · " + st.payNote : "") };
   const rate = Number(st.rate)||0; let pay = worked*rate, how = money(rate)+"/hr";
   if(st.overtime === "yes" && worked > 40){ pay = 40*rate + (worked-40)*rate*1.5; how += ", 1.5× after 40 hrs"; }
   return { worked, pay, how };
@@ -268,11 +270,11 @@ function assignLi(a){
 }
 function todoLi(x){
   const who = x.who === "nanny" ? nannyName() : x.who === "mom" ? "Alexandra" : "Either";
-  return `<li class="${x.done?"done":""}"><input type="checkbox" class="check" data-todo="${x._id}" ${x.done?"checked":""} ${readOnly?"disabled":""} aria-label="Mark done"><div class="grow"><div class="t">${esc(x.text)}${exTag(x)}</div><div class="meta">${esc(who)}${x.due?" · by "+fmtDate(x.due):""}${x.kid&&x.kid!=="all"?" · "+esc(kidName(x.kid)):""}</div></div>${!readOnly?`<button class="btn ghost small" data-edit-todo="${x._id}">Edit</button>`:""}</li>`;
+  return `<li class="${x.done?"done":""}"><input type="checkbox" class="check" data-todo="${x._id}" ${x.done?"checked":""} ${readOnly?"disabled":""} aria-label="Mark done"><div class="grow"><div class="t">${esc(x.text)}${exTag(x)}${x.extra==="yes"?` <span class="chip warn">Extra task</span>`:""}</div><div class="meta">${esc(who)}${x.due?" · by "+fmtDate(x.due):""}${x.kid&&x.kid!=="all"?" · "+esc(kidName(x.kid)):""}</div></div>${!readOnly?`<button class="btn ghost small" data-edit-todo="${x._id}">Edit</button>`:""}</li>`;
 }
 
 function renderHours(){
-  const list = weekShifts(weekStart), p = payFor(list);
+  const list = weekShifts(weekStart), p = payFor(list, weekStart);
   const sched = list.reduce((t,s)=>t+hrs(s.start,s.end),0);
   const showPay = isMom() || (S.settings && S.settings.showPayToNanny === "yes");
   const st = S.settings || {};
@@ -288,7 +290,8 @@ function renderHours(){
     <thead><tr><th>Day</th><th>Scheduled</th><th>Clocked</th><th class="num">Hours</th><th>Note</th><th></th></tr></thead>
     <tbody>${list.length ? list.map(s=>`<tr><td>${fmtDate(s.date)}${exTag(s)}</td><td class="num">${s.start?fmtT(s.start)+" – "+fmtT(s.end):"—"}</td><td class="num">${s.inAt?fmtT(s.inAt):"—"} – ${s.outAt?fmtT(s.outAt):(s.inAt?"on now":"—")}</td><td class="num">${fmtH(s.outAt?workedHours(s):hrs(s.start,s.end))}${s.outAt?"":" <span class='meta'>sched.</span>"}</td><td>${esc(s.note||"")}</td><td>${!readOnly?`<button class="btn ghost small" data-edit-shift="${s._id}">${isMom()?"Edit":"Fix time"}</button>`:""}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No shifts this week yet.${isMom()?" Add one, or copy last week's schedule.":""}</td></tr>`}</tbody>
   </table></div></section>
-  ${isMom()?`<section class="panel"><div class="row"><h3 style="margin:0">Pay setup</h3>${!readOnly?`<button class="btn small" id="paySetup">Edit pay setup</button>`:""}</div><p class="note">${st.payType==="weekly"?`Weekly salary of ${money(Number(st.weeklyPay)||0)}.`:`Hourly at ${money(Number(st.rate)||0)}${st.overtime==="yes"?", with 1.5× after 40 hours":""}.`} ${st.showPayToNanny==="yes"?"Your nanny can see the pay total.":"Your nanny sees her hours but not the pay total."} Hours worked subtract any unpaid break minutes entered on a shift.</p></section>`:""}`;
+  ${isMom() && st.payType==="weekly" && Number(st.bonusAmount) ? `<section class="panel"><label class="row" for="bonusChk" style="justify-content:flex-start;gap:10px;cursor:pointer"><input type="checkbox" class="check" id="bonusChk" ${bonusWeek(weekStart)?"checked":""} ${readOnly?"disabled":""}><span><span class="t">${esc(nannyName())} did extra tasks this week</span><br><span class="meta">Adds ${money(Number(st.bonusAmount))} to this week's pay. ${S.todos.filter(x=>x.extra==="yes"&&x.done).length} extra-task to-dos checked off recently.</span></span></label></section>` : ""}
+  ${isMom()?`<section class="panel"><div class="row"><h3 style="margin:0">Pay setup</h3>${!readOnly?`<button class="btn small" id="paySetup">Edit pay setup</button>`:""}</div><p class="note">${st.payType==="weekly"?`${money(Number(st.weeklyPay)||0)} a week${st.payNote?" ("+esc(st.payNote)+")":""}${Number(st.bonusAmount)?`, plus ${money(Number(st.bonusAmount))} in weeks with extra tasks`:""}.`:`Hourly at ${money(Number(st.rate)||0)}${st.overtime==="yes"?", with 1.5× after 40 hours":""}.`} ${st.showPayToNanny==="yes"?"Your nanny can see the pay total.":"Your nanny sees her hours but not the pay total."} Hours worked subtract any unpaid break minutes entered on a shift.</p></section>`:""}`;
 }
 
 function shiftForm(s){
@@ -369,7 +372,7 @@ function renderTodos(){
   const done = S.todos.filter(x=>recentlyDone(x) && mine(x)).sort((a,b)=>(b.doneAt||"").localeCompare(a.doneAt||""));
   return `<section class="panel">
     ${!readOnly?`<form id="quickAdd" class="row" style="gap:8px;margin-bottom:8px"><label class="f grow" for="qaText" style="min-width:200px">Add to the list<input id="qaText" placeholder="e.g. Pack Leo's swim bag" autocomplete="off"></label>
-      <label class="f" for="qaWho">For<select id="qaWho">${[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]].map(o=>`<option value="${o[0]}" ${o[0]===(isMom()?"nanny":"mom")?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>
+      <label class="f" for="qaWho">For<select id="qaWho">${[["nanny",nannyName()],["nanny-extra",nannyName()+" (extra task)"],["mom","Alexandra"],["either","Either"]].map(o=>`<option value="${o[0]}" ${o[0]===(isMom()?"nanny":"mom")?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>
       <button class="btn primary" type="submit" style="align-self:end">Add</button></form>`:""}
     ${open.length?`<ul class="list">${open.map(todoLi).join("")}</ul>`:`<p class="empty">Nothing on the list. Everything's checked off.</p>`}
     ${done.length?`<h3 style="margin-top:16px">Checked off</h3><ul class="list">${done.map(todoLi).join("")}</ul><p class="note">Checked items drop off the list after ${HIDE_DONE_AFTER_DAYS} days. Uncheck one to bring it back.</p>`:""}
@@ -383,7 +386,8 @@ function renderNotes(){
 }
 function todoForm(x){
   openForm(x?"Edit to-do":"Add to-do", [{key:"text",label:"To-do",req:true,ph:"e.g. Sign Ava's field trip form"},{key:"who",label:"For",type:"select",options:[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]]},
-    {key:"kid",label:"About",type:"select",options:kidOptions(true)},{key:"due",label:"By (optional)",type:"date"}], x || {who: isMom()?"nanny":"mom", kid:"all"}, v => {
+    {key:"kid",label:"About",type:"select",options:kidOptions(true)},{key:"due",label:"By (optional)",type:"date"},
+    {key:"extra",label:"Extra task (not kid-related, counts toward the weekly bonus)",type:"select",options:[["no","No"],["yes","Yes"]]}], x || {who: isMom()?"nanny":"mom", kid:"all", extra:"no"}, v => {
       if(!v.text) return "Write the to-do."; const d = Object.assign({}, x?strip(x):{done:false}, v); delete d.example; save("todos", x?x._id:null, d);
     }, x ? () => remove("todos", x._id) : null);
 }
@@ -393,8 +397,9 @@ function setupForm(){
   openForm("Family setup", [
     {key:"nannyName",label:"Nanny's name"},
     {key:"kidsText",label:"Kids (one per line: name, grade, school)",type:"textarea",ph:"Ava, 6th, Hammonton Middle School"},
-    {key:"payType",label:"How you pay",type:"select",options:[["hourly","Hourly"],["weekly","Weekly salary"]]},
-    {key:"rate",label:"Hourly rate ($)",type:"number",step:"0.25"},{key:"weeklyPay",label:"Weekly salary ($)",type:"number",step:"1"},
+    {key:"payType",label:"How you pay",type:"select",options:[["hourly","Hourly"],["weekly","Weekly amount"]]},
+    {key:"rate",label:"Hourly rate ($)",type:"number",step:"0.25"},{key:"weeklyPay",label:"Weekly pay ($)",type:"number",step:"1"},
+    {key:"bonusAmount",label:"Extra-tasks bonus per week ($)",type:"number",step:"1"},{key:"payNote",label:"How and when you pay",ph:"e.g. Zelle every Friday"},
     {key:"overtime",label:"Overtime",type:"select",options:[["no","No overtime"],["yes","1.5× after 40 hours"]]},
     {key:"showPayToNanny",label:"Nanny can see pay total",type:"select",options:[["no","No"],["yes","Yes"]]}],
     Object.assign({}, st, {kidsText: kids().map(k=>[k.name,k.grade,k.school].filter(Boolean).join(", ")).join("\n")}), v => {
@@ -430,6 +435,8 @@ function bind(){
   on("#wkNext", () => { weekStart = addDays(weekStart,7); render(); });
   on("#addShift", () => shiftForm(null));
   on("#paySetup", setupForm);
+  const bc = $("#bonusChk"); if(bc) bc.onchange = () => { const wk = ymd(weekStart); const set = new Set((S.settings||{}).bonusWeeks||[]); bc.checked ? set.add(wk) : set.delete(wk);
+    save("settings","main", Object.assign({}, strip(S.settings||{}), {bonusWeeks: Array.from(set).sort().slice(-60)})); };
   on("#copyWeek", async () => { const prev = weekShifts(addDays(weekStart,-7)); if(!prev.length) return toast("Last week has no shifts to copy.");
     const have = new Set(weekShifts(weekStart).map(s=>s.date));
     for(const s of prev){ const nd = ymd(addDays(parseYmd(s.date),7)); if(have.has(nd)) continue; await save("shifts", null, {date:nd,start:s.start,end:s.end,inAt:"",outAt:"",note:s.note||""}); } });
@@ -439,7 +446,7 @@ function bind(){
   document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
   document.querySelectorAll("[data-todo]").forEach(c => c.onchange = () => patch("todos", c.dataset.todo, {done: c.checked, doneAt: c.checked ? new Date().toISOString() : ""}));
   const qa = $("#quickAdd"); if(qa) qa.onsubmit = e => { e.preventDefault(); const t = $("#qaText").value.trim(); if(!t) return;
-    save("todos", null, {text:t, who: $("#qaWho").value, kid:"all", due:"", done:false, doneAt:""}); $("#qaText").value = ""; };
+    const w = $("#qaWho").value; save("todos", null, {text:t, who: w==="nanny-extra"?"nanny":w, extra: w==="nanny-extra"?"yes":"no", kid:"all", due:"", done:false, doneAt:""}); $("#qaText").value = ""; };
   const find = (arr,id) => arr.find(x=>x._id===id);
   document.querySelectorAll("[data-edit-shift]").forEach(b => b.onclick = () => shiftForm(find(S.shifts,b.dataset.editShift)));
   document.querySelectorAll("[data-edit-assign]").forEach(b => b.onclick = () => assignForm(find(S.assignments,b.dataset.editAssign)));
