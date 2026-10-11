@@ -17,6 +17,13 @@
   --display:"Bodoni Moda", "Didot", Georgia, serif;
   --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+/* Each boy's own view can have its own colors (set on <html data-kid="...">). */
+:root[data-kid="grayson"]{
+  --bg:#f6f6f6; --surface:#ffffff; --ink:#111111; --muted:#5a5a5a; --line:#e2e2e2;
+  --accent:#1c2f5e; --accent-ink:#ffffff; --accent-soft:#e6eaf3; --k0:#1c2f5e; --k1:#1c2f5e; --k2:#1c2f5e; --k3:#1c2f5e }
+:root[data-kid="julian"]{
+  --bg:#f1f5f6; --surface:#ffffff; --ink:#13232b; --muted:#566a72; --line:#d9e4e7;
+  --accent:#1d4e5e; --accent-ink:#ffffff; --accent-soft:#deedf0; --k0:#1d6a7a; --k1:#1d6a7a; --k2:#1d6a7a; --k3:#1d6a7a }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
   --accent:#dcbfa6; --accent-ink:#2a1f17; --accent-soft:#3a2f27;
@@ -27,6 +34,12 @@
   --accent:#dcbfa6; --accent-ink:#2a1f17; --accent-soft:#3a2f27;
   --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224;
   --k0:#e3a6ae; --k1:#8fc0aa; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }
+@media (prefers-color-scheme: dark){:root[data-kid="grayson"]:not([data-theme="light"]){
+  --bg:#0b0b0c; --surface:#161618; --ink:#f2f2f2; --muted:#a3a3a3; --line:#2b2b2e;
+  --accent:#8ea8e0; --accent-ink:#0b0b0c; --accent-soft:#1d2436; --k0:#8ea8e0; --k1:#8ea8e0; --k2:#8ea8e0; --k3:#8ea8e0 }}
+@media (prefers-color-scheme: dark){:root[data-kid="julian"]:not([data-theme="light"]){
+  --bg:#0d1a1f; --surface:#15252c; --ink:#e4eff1; --muted:#97adb4; --line:#273b43;
+  --accent:#78c0cc; --accent-ink:#0d1a1f; --accent-soft:#1b3540; --k0:#78c0cc; --k1:#78c0cc; --k2:#78c0cc; --k3:#78c0cc }}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
@@ -154,10 +167,10 @@ const fmtDate = s => { const d = parseYmd(s); return DAYS[d.getDay()]+", "+d.toL
 const dueLabel = s => { if(!s) return ["No due date",""]; const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
   if(n<0) return ["Overdue","bad"]; if(n===0) return ["Due today","warn"]; if(n===1) return ["Due tomorrow","warn"]; return ["Due "+fmtDate(s),""]; };
 
-const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], games:[], loaded:{} };
+const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], games:[], loaded:{} };
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
-let db = null, pin = "", isOwner = true, viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
+let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
 try { const t = localStorage.getItem("fhb-tab"); if(t) tab = t; } catch(e){}
 if(/^#(today|hours|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
 
@@ -169,7 +182,7 @@ const nannyName = () => (S.settings && S.settings.nannyName) || "Nanny";
 const isMom = () => viewAs === "mom";
 
 /* ---------- data (Google Sheet via Apps Script) ---------- */
-const COLLS = ["shifts","assignments","grades","activities","todos"];
+const COLLS = ["shifts","assignments","grades","activities","todos","events"];
 async function api(body){
   const r = await fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({pin}, body))});
   const j = await r.json(); if(!j.ok) throw new Error(j.error || "Something went wrong"); return j;
@@ -252,7 +265,7 @@ function bindClock(){
 
 function renderToday(){
   const t = new Date(), tY = ymd(t), wd = t.getDay();
-  const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
+  const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY), eventsOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
   const soon = ymd(addDays(t,3));
   const due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
   const todos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom"));
@@ -319,7 +332,7 @@ function renderSchool(){
   const lastSync = S.settings && S.settings.lastSync;
   return `<div class="row"><div class="kids" role="group" aria-label="Show"><button data-kid="all" aria-pressed="${kidFilter==="all"}">All kids</button>${ks.map(k=>`<button data-kid="${k.id}" aria-pressed="${kidFilter===k.id}"><span class="dot" style="margin:0;background:${kidColor(k.id)}"></span>${esc(k.name)}</button>`).join("")}</div>
   ${!readOnly?`<button class="btn primary" id="addAssign">Add assignment</button>`:""}</div>
-  <p class="note">${lastSync?`Last updated from Google Classroom and Genesis: ${esc(lastSync)}.`:"Assignments and grades are entered by hand for now. Ask Claude in your project to pull the latest from Google Classroom and the school portal, and they'll appear here."}</p>
+  <p class="note">${lastSync?`Last updated from Google Classroom and the parent portal: ${esc(lastSync)}.`:"Assignments and grades come in from Google Classroom and the parent portal every day at 2:15 PM. You can also add one by hand."}</p>
   <div class="grid2">
     <section class="panel"><h3>Upcoming &amp; overdue</h3>${open.length?`<ul class="list">${open.map(assignLi).join("")}</ul>`:`<p class="empty">No open assignments.</p>`}
     ${recent.length?`<h3 style="margin-top:16px">Finished recently</h3><ul class="list">${recent.map(assignLi).join("")}</ul>`:""}</section>
@@ -356,14 +369,31 @@ function gamesPanel(f){
   if(!S.games.length) return "";
   return `<section class="panel"><h3>Team games and practices, next 2 weeks</h3>${list.length ? `<ul class="list">${list.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))} · ${fmtDate(a.date)}${a.start?" · "+fmtT(a.start)+(a.end?" – "+fmtT(a.end):""):""}${a.location?" · "+esc(a.location):""}</div></div><span class="chip src">GameChanger</span></li>`).join("")}</ul>` : `<p class="empty">Nothing on the team calendar in the next 2 weeks.</p>`}</section>`;
 }
+/* One-time events (doctor visits, half days, parties): dated, shown on Today, Activities, the kids' calendars and the Skylight. */
+const eventsOn = d => S.events.filter(e => e.date === d);
+function eventsPanel(f){
+  const t = ymd(new Date()), until = ymd(addDays(new Date(),30));
+  const list = S.events.filter(e => e.date >= t && e.date <= until && f(e)).sort((a,b)=>(a.date+(a.start||"")).localeCompare(b.date+(b.start||"")));
+  return `<section class="panel"><div class="row"><h3 style="margin:0">Appointments and one-time events</h3>${isMom()&&!readOnly?`<button class="btn small" id="addEvent">Add event</button>`:""}</div>
+  ${list.length ? `<ul class="list">${list.map(e=>`<li><span class="dot" style="background:${kidColor(e.kid)}"></span><div class="grow"><div class="t">${esc(e.title)}</div><div class="meta num">${esc(kidName(e.kid))} · ${fmtDate(e.date)}${e.start?" · "+fmtT(e.start)+(e.end?" – "+fmtT(e.end):""):" · all day"}${e.location?" · "+esc(e.location):""}</div></div>${isMom()&&!readOnly?`<button class="btn ghost small" data-edit-event="${e._id}">Edit</button>`:""}</li>`).join("")}</ul>` : `<p class="empty">Nothing in the next 30 days. Add doctor visits, half days or parties here and they show on the Skylight too.</p>`}</section>`;
+}
+function eventForm(e){
+  openForm(e?"Edit event":"Add event", [
+    {key:"kid",label:"Who",type:"select",options:kidOptions(true)},{key:"title",label:"What",req:true,ph:"e.g. Dentist, Dr. Smith"},
+    {key:"date",label:"Date",type:"date",req:true},{key:"start",label:"Starts (leave empty for all day)",type:"time"},{key:"end",label:"Ends",type:"time"},
+    {key:"location",label:"Where",ph:"e.g. 123 Main St"},{key:"notes",label:"Notes",ph:"e.g. Bring insurance card"}],
+    e || {kid:"all", date: ymd(new Date())}, v => { if(!v.title) return "Say what it is."; if(!v.date) return "Pick a date.";
+      save("events", e?e._id:null, Object.assign({}, e?strip(e):{}, v)); }, e ? () => remove("events", e._id) : null);
+}
 function renderActivities(){
   const order = [1,2,3,4,5,6,0], tw = new Date().getDay();
   const f = a => kidFilter === "all" || a.kid === kidFilter || a.kid === "all";
   return `<div class="row"><div class="kids" role="group" aria-label="Show"><button data-kid="all" aria-pressed="${kidFilter==="all"}">All kids</button>${kids().map(k=>`<button data-kid="${k.id}" aria-pressed="${kidFilter===k.id}"><span class="dot" style="margin:0;background:${kidColor(k.id)}"></span>${esc(k.name)}</button>`).join("")}</div>${isMom()&&!readOnly?`<button class="btn primary" id="addAct">Add activity</button>`:""}</div>
   <div class="scroll"><div class="week">${order.map(d=>{ const list = S.activities.filter(a=>Number(a.day)===d && f(a)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
     return `<div class="day ${d===tw?"today":""}"><div class="dh">${DAYS[d]}${d===tw?" · today":""}</div>${list.map(a=>`<button class="act" style="--kc:${kidColor(a.kid)}" data-edit-act="${a._id}" ${!isMom()||readOnly?"disabled":""}><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))}<br>${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?"<br>"+esc(a.location):""}${a.driver?"<br>"+esc(a.driver)+" drives":""}</div>${a.example?`<span class="ex">Example</span>`:""}</button>`).join("") || `<span class="meta">Free</span>`}</div>`; }).join("")}</div></div>
+  ${eventsPanel(f)}
   ${gamesPanel(f)}
-  <p class="note">This is the repeating weekly schedule. Team games come in on their own from the team calendar. Other one-off plans go in To-dos with a date.</p>`;
+  <p class="note">The week grid is the repeating schedule. Team games come in on their own from the team calendar.</p>`;
 }
 function actForm(a){
   openForm(a?"Edit activity":"Add activity", [
@@ -393,7 +423,7 @@ function renderNotes(){
   const h = (S.settings && S.settings.houseNotes) || "";
   return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div>
     ${h?`<div style="white-space:pre-wrap;max-width:65ch">${esc(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else your nanny should always have handy.</p>`}
-    <p class="note" style="margin-top:12px">Please keep passwords and account logins out of this app.</p></section>`;
+</section>`;
 }
 function todoForm(x){
   openForm(x?"Edit to-do":"Add to-do", [{key:"text",label:"To-do",req:true,ph:"e.g. Sign Ava's field trip form"},{key:"who",label:"For",type:"select",options:[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]]},
@@ -423,10 +453,12 @@ function setupForm(){
 function render(){
   const t = new Date();
   $("#signOut").hidden = !db;
-  $("#todayLine").textContent = DAYS_LONG[t.getDay()] + ", " + t.toLocaleDateString(undefined,{month:"long",day:"numeric"}) + (kids().length ? " · " + kids().map(k=>k.name).join(", ") : "");
+  $("#todayLine").textContent = DAYS_LONG[t.getDay()] + ", " + t.toLocaleDateString(undefined,{month:"long",day:"numeric"}) + (kids().length && !kidMode ? " · " + kids().map(k=>k.name).join(", ") : "");
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab===tab)));
   const m = $("#main");
   if(!db){ renderLogin(); return; }
+  $("nav.tabs").hidden = !!kidMode;
+  if(kidMode){ document.documentElement.dataset.kid = kidMode; $("h1").textContent = (kidById(kidMode)||{}).name ? kidById(kidMode).name + "'s Home Base" : "My Home Base"; m.innerHTML = renderKid(); bind(); return; }
   const ready = ["settings","shifts","assignments","grades","activities","todos"].every(k=>S.loaded[k]);
   if(!ready){ m.innerHTML = `<div class="panel"><p class="empty">Loading the family schedule…</p></div>`; return; }
   let top = "";
@@ -437,6 +469,32 @@ function render(){
   const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes}[tab]();
   m.innerHTML = top + body;
   bind();
+}
+
+/* ---------- a child's own view ---------- */
+let kidTab = "work";
+function dayAgenda(d){
+  const y = ymd(d);
+  return S.activities.filter(a => Number(a.day) === d.getDay()).map(a => ({name:a.name, start:a.start, end:a.end, location:a.location, kid:a.kid}))
+    .concat(gamesOn(y), eventsOn(y).map(e => ({name:e.title, start:e.start, end:e.end, location:e.location, kid:e.kid})))
+    .sort((a,b)=>(a.start||"").localeCompare(b.start||""));
+}
+function renderKid(){
+  const me = kidById(kidMode) || {name:"", id:kidMode};
+  const tabs = `<nav class="tabs" role="tablist" aria-label="Sections" style="margin-top:0"><button role="tab" data-ktab="work" aria-selected="${kidTab==="work"}">My assignments</button><button role="tab" data-ktab="cal" aria-selected="${kidTab==="cal"}">My calendar</button></nav>`;
+  if(kidTab === "cal"){
+    const days = Array.from({length:14}, (_,i) => addDays(new Date(), i));
+    return tabs + days.map((d,i) => { const list = dayAgenda(d);
+      return `<section class="panel"><h3>${i===0?"Today":i===1?"Tomorrow":""}${i<2?" · ":""}${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}</h3>${list.length?`<ul class="list">${list.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}</div><div class="meta num">${a.start?fmtT(a.start)+(a.end?" – "+fmtT(a.end):""):"All day"}${a.location?" · "+esc(a.location):""}</div></div></li>`).join("")}</ul>`:`<p class="empty">Nothing planned.</p>`}</section>`; }).join("");
+  }
+  const open = S.assignments.filter(a => !a.done).sort((a,b)=>(a.due||"9999").localeCompare(b.due||"9999"));
+  const done = S.assignments.filter(a => a.done).sort((a,b)=>(b.due||"").localeCompare(a.due||"")).slice(0,10);
+  const li = a => { const [lab, cls] = dueLabel(a.due);
+    return `<li class="${a.done?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${a.done?"checked":""} aria-label="Mark ${esc(a.title)} done"><div class="grow"><div class="t">${esc(a.title)}</div><div class="meta">${esc(a.cls||"")}${a.notes?" · "+esc(a.notes):""}</div></div><span class="chip ${a.done?"good":cls}">${a.done?"Done":lab}</span></li>`; };
+  return tabs + `<section class="panel"><div class="row"><h3 style="margin:0">To do · ${open.length}</h3><a class="btn small" href="https://classroom.google.com" target="_blank" rel="noopener">Open Google Classroom</a></div>
+    ${open.length?`<ul class="list">${open.map(li).join("")}</ul>`:`<p class="empty">All done. Nice work, ${esc(me.name)}!</p>`}
+    <p class="note" style="margin-top:10px">Turn it in on Google Classroom first, then check it off here.</p></section>
+    ${done.length?`<section class="panel"><h3>Finished</h3><ul class="list">${done.map(li).join("")}</ul></section>`:""}`;
 }
 
 function bind(){
@@ -451,7 +509,7 @@ function bind(){
   on("#copyWeek", async () => { const prev = weekShifts(addDays(weekStart,-7)); if(!prev.length) return toast("Last week has no shifts to copy.");
     const have = new Set(weekShifts(weekStart).map(s=>s.date));
     for(const s of prev){ const nd = ymd(addDays(parseYmd(s.date),7)); if(have.has(nd)) continue; await save("shifts", null, {date:nd,start:s.start,end:s.end,inAt:"",outAt:"",note:s.note||""}); } });
-  on("#addAssign", () => assignForm(null)); on("#addGrade", () => gradeForm(null)); on("#addAct", () => actForm(null)); on("#addTodo", () => todoForm(null));
+  on("#addAssign", () => assignForm(null)); on("#addGrade", () => gradeForm(null)); on("#addAct", () => actForm(null)); on("#addTodo", () => todoForm(null)); on("#addEvent", () => eventForm(null));
   on("#editHouse", () => openForm("Family Facts", [{key:"houseNotes",label:"Notes your nanny should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
   document.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { kidFilter = b.dataset.kid; render(); });
   document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
@@ -464,6 +522,8 @@ function bind(){
   document.querySelectorAll("[data-edit-grade]").forEach(b => b.onclick = () => gradeForm(find(S.grades,b.dataset.editGrade)));
   document.querySelectorAll("[data-edit-act]").forEach(b => b.onclick = () => actForm(find(S.activities,b.dataset.editAct)));
   document.querySelectorAll("[data-edit-todo]").forEach(b => b.onclick = () => todoForm(find(S.todos,b.dataset.editTodo)));
+  document.querySelectorAll("[data-edit-event]").forEach(b => b.onclick = () => eventForm(find(S.events,b.dataset.editEvent)));
+  document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
 }
 
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; try{ localStorage.setItem("fhb-tab", tab); }catch(e){} render(); });
@@ -481,7 +541,7 @@ async function signIn(p, remember){
   pin = p; $("#main").innerHTML = `<div class="panel"><p class="empty">Loading the family schedule…</p></div>`;
   try {
     const role = await refresh();
-    db = true; isOwner = role === "mom"; viewAs = isOwner ? "mom" : "nanny"; $("#roleBox").hidden = !isOwner;
+    db = true; isOwner = role === "mom"; kidMode = String(role).indexOf("kid:") === 0 ? role.slice(4) : ""; viewAs = isOwner ? "mom" : "nanny"; $("#roleBox").hidden = !isOwner;
     if(remember){ try { localStorage.setItem("fhb-pin", pin); } catch(e){} }
     render();
   } catch(e){
@@ -489,7 +549,7 @@ async function signIn(p, remember){
     renderLogin(/bad_pin|locked/.test(e.message) ? (e.message==="locked" ? "Too many wrong tries. Wait 15 minutes and try again." : "That passcode didn't work.") : "Couldn't reach the family schedule. Check your connection.");
   }
 }
-$("#signOut").onclick = () => { try { localStorage.removeItem("fhb-pin"); } catch(e){} db = null; pin = ""; render(); };
+$("#signOut").onclick = () => { try { localStorage.removeItem("fhb-pin"); } catch(e){} db = null; pin = ""; kidMode = ""; delete document.documentElement.dataset.kid; $("h1").textContent = "Family Home Base"; render(); };
 setInterval(() => { if(db && document.visibilityState === "visible" && !$("#dlg").open) refresh().then(render).catch(()=>{}); }, 30000);
 document.addEventListener("visibilitychange", () => { if(db && document.visibilityState === "visible") refresh().then(render).catch(()=>{}); });
 let saved = ""; try { saved = localStorage.getItem("fhb-pin") || ""; } catch(e){}

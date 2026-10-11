@@ -5,9 +5,10 @@
  * Passcodes are kept in Script Properties (Project Settings), never in this file.
  *   OWNER_PIN  full access (Alexandra)
  *   NANNY_PIN  nanny access: clock in/out, fix her times, check off to-dos and homework
+ *   KID_PIN_<kid id>  a child's own view: his assignments (check off only) and his calendar
  */
 const SHEET_ID = "1TFjO180dVUddqTtr2cAeDgspTEejo0u8aYnfrUS_Kh0"; // "Family Home Base Data" in Alexandra's Drive
-const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos"];
+const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos", "events"];
 const NANNY_WRITES = { shifts: ["set", "update"], assignments: ["set", "update"], todos: ["set", "update", "delete"] };
 
 function out_(obj) {
@@ -22,6 +23,8 @@ function role_(pin) {
   const owner = p.getProperty("OWNER_PIN"), nanny = p.getProperty("NANNY_PIN");
   if (pin && owner && pin === owner) return "mom";
   if (pin && nanny && pin === nanny) return "nanny";
+  const kid = Object.keys(p.getProperties()).filter(k => k.indexOf("KID_PIN_") === 0 && pin && p.getProperty(k) === pin)[0];
+  if (kid) return "kid:" + kid.slice(8);
   cache.put("fails", String(fails + 1), 900);
   throw new Error("bad_pin");
 }
@@ -57,6 +60,19 @@ function readAll_(role) {
   if (role === "nanny") {
     data.settings.forEach(s => { if (s.showPayToNanny !== "yes") { delete s.rate; delete s.weeklyPay; } });
   }
+  if (role.indexOf("kid:") === 0) {
+    // A child sees only his own schoolwork and schedule: no pay, logins, shifts or family to-dos.
+    const me = role.slice(4), mine = r => r.kid === me || r.kid === "all";
+    return {
+      settings: data.settings.map(s => ({ _id: s._id, kids: s.kids || [] })),
+      assignments: data.assignments.filter(r => r.kid === me),
+      grades: data.grades.filter(r => r.kid === me),
+      activities: data.activities.filter(mine),
+      events: data.events.filter(mine),
+      games: data.games.filter(mine),
+      shifts: [], todos: []
+    };
+  }
   return data;
 }
 
@@ -64,7 +80,7 @@ function write_(op, coll, id, data) {
   const sh = sheet_(coll), vals = sh.getDataRange().getValues();
   let row = -1;
   for (let i = 1; i < vals.length; i++) if (String(vals[i][0]) === String(id)) { row = i + 1; break; }
-  if (["shifts", "activities", "settings"].indexOf(coll) >= 0) PropertiesService.getScriptProperties().setProperty("CAL_DIRTY", "1");
+  if (["shifts", "activities", "settings", "events"].indexOf(coll) >= 0) PropertiesService.getScriptProperties().setProperty("CAL_DIRTY", "1");
   if (op === "delete") { if (row > 0) sh.deleteRow(row); return id; }
   if (!id) id = Utilities.getUuid().slice(0, 12);
   let rec = Object.assign({}, data || {});
@@ -95,6 +111,12 @@ function doPost(e) {
     const op = body.action, coll = body.coll;
     if (["set", "update", "delete"].indexOf(op) < 0 || COLLS.indexOf(coll) < 0) throw new Error("Unknown request.");
     if (role === "nanny" && (NANNY_WRITES[coll] || []).indexOf(op) < 0) throw new Error("Only Alexandra can change that.");
+    if (role.indexOf("kid:") === 0) {
+      // Kids can only check their own assignments on or off.
+      const rec = rows_("assignments").filter(r => r._id === String(body.id))[0];
+      if (op !== "update" || coll !== "assignments" || !rec || rec.kid !== role.slice(4)) throw new Error("Ask Mom to change that.");
+      body.data = { done: !!(body.data || {}).done, doneAt: (body.data || {}).done ? new Date().toISOString() : "" };
+    }
     const lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try { return out_({ ok: true, id: write_(op, coll, body.id, body.data) }); }
@@ -113,19 +135,38 @@ function setup() {
   const make = () => Utilities.getUuid().replace(/-/g, "").slice(0, 8);
   if (!p.getProperty("OWNER_PIN")) p.setProperty("OWNER_PIN", make());
   if (!p.getProperty("NANNY_PIN")) p.setProperty("NANNY_PIN", make());
+  const kids = ((rows_("settings").filter(r => r._id === "main")[0] || {}).kids || []);
+  kids.forEach(k => { if (!p.getProperty("KID_PIN_" + k.id)) p.setProperty("KID_PIN_" + k.id, make()); });
   const sh = sheet_("Passcodes");
   sh.clear();
-  sh.getRange(1, 1, 4, 2).setValues([
+  const lines = [
     ["Who", "Passcode"],
     ["Alexandra (full access)", p.getProperty("OWNER_PIN")],
-    ["Nanny", p.getProperty("NANNY_PIN")],
-    ["Note", "Keep this tab private. To change a passcode, ask Claude."]
-  ]);
+    ["Nanny", p.getProperty("NANNY_PIN")]
+  ].concat(kids.map(k => [k.name + " (his own view)", p.getProperty("KID_PIN_" + k.id)]))
+   .concat([["Note", "Keep this tab private. To change a passcode, ask Claude."]]);
+  sh.getRange(1, 1, lines.length, 2).setValues(lines);
   COLLS.forEach(sheet_);
   setupCalendarSync();
 }
 
 /* ---------- Skylight / Google Calendar ---------- */
+
+/** Makes passcodes for any kids that don't have one yet (safe to run again; existing passcodes stay). */
+function setupKidPasscodes() {
+  const p = PropertiesService.getScriptProperties();
+  const make = () => Utilities.getUuid().replace(/-/g, "").slice(0, 8);
+  const kids = ((rows_("settings").filter(r => r._id === "main")[0] || {}).kids || []);
+  kids.forEach(k => { if (!p.getProperty("KID_PIN_" + k.id)) p.setProperty("KID_PIN_" + k.id, make()); });
+  const sh = sheet_("Passcodes"), vals = sh.getDataRange().getValues();
+  kids.forEach(k => {
+    const label = k.name + " (his own view)";
+    if (vals.some(v => v[0] === label)) return;
+    sh.insertRowBefore(sh.getLastRow());
+    sh.getRange(sh.getLastRow() - 1, 1, 1, 2).setValues([[label, p.getProperty("KID_PIN_" + k.id)]]);
+  });
+  sheet_("events");
+}
 
 /** Run once from the editor to turn on the calendar feed for the Skylight. */
 function setupCalendarSync() {
@@ -139,7 +180,7 @@ function syncIfChanged() {
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   // Also catch edits made straight in the Sheet (not through the app).
   const digest = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
-    JSON.stringify(["settings", "shifts", "activities"].map(c => sheet_(c).getDataRange().getValues()).concat([games_()]))));
+    JSON.stringify(["settings", "shifts", "activities", "events"].map(c => sheet_(c).getDataRange().getValues()).concat([games_()]))));
   const changed = p.getProperty("CAL_DIGEST") !== digest;
   if (changed || p.getProperty("CAL_DIRTY") === "1" || p.getProperty("CAL_LAST_DAY") !== today) {
     syncCalendar();
@@ -185,6 +226,15 @@ function syncCalendarNow_() {
     const s = new Date(g.start), e = new Date(g.end);
     if (s >= end || e < start) return;
     want.push({ title: kidName(g.kid) + ": " + g.title, s: s, e: e > s ? e : new Date(s.getTime() + 864e5), allDay: g.allDay, location: g.location || "", description: "" });
+  });
+  rows_("events").forEach(ev => {
+    if (!ev.date) return;
+    const d = new Date(ev.date + "T00:00:00");
+    if (d < start || d >= end) return;
+    const title = kidName(ev.kid) + ": " + ev.title;
+    if (!ev.start) { const e = new Date(d); e.setDate(e.getDate() + 1); want.push({ title: title, s: d, e: e, allDay: true, location: ev.location || "", description: "" }); return; }
+    const s = at(d, ev.start), e = ev.end ? at(d, ev.end) : new Date(s.getTime() + 3600000);
+    want.push({ title: title, s: s, e: e, location: ev.location || "", description: ev.notes || "" });
   });
   if (p.getProperty("SKYLIGHT_SHOW_SHIFTS") !== "no") {
     rows_("shifts").forEach(sh => {
