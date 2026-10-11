@@ -201,8 +201,11 @@ function syncCalendarNow_() {
   const key = (title, s, e, allDay, loc, desc) => [title, allDay ? "D" : "T", s.getTime(), e.getTime(), loc || "", desc || ""].join("|");
   const need = {};
   want.forEach(w => { need[key(w.title, w.s, w.e, w.allDay, w.location, w.description)] = w; });
+  // A create can fail before its tag is set, so an untagged event with one of our titles is ours too.
+  const ourTitles = {};
+  want.forEach(w => { ourTitles[w.title] = true; });
   cal.getEvents(start, end).forEach(ev => {
-    if (!ev.getTag("fhb")) return;
+    if (!ev.getTag("fhb") && !ourTitles[ev.getTitle()]) return;
     const allDay = ev.isAllDayEvent();
     const k = key(ev.getTitle(), allDay ? ev.getAllDayStartDate() : ev.getStartTime(), allDay ? ev.getAllDayEndDate() : ev.getEndTime(), allDay, ev.getLocation(), ev.getDescription());
     if (need[k]) delete need[k]; // already there (a second copy gets removed)
