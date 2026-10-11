@@ -157,7 +157,7 @@ const dueLabel = s => { const t = parseYmd(ymd(new Date())), d = parseYmd(s); co
 
 const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], loaded:{} };
 /* Paste the Google Apps Script web app URL here (see README). */
-const API_URL = "PASTE_WEB_APP_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
 try { const t = localStorage.getItem("fhb-tab"); if(t) tab = t; } catch(e){}
 if(/^#(today|hours|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
