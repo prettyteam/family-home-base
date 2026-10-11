@@ -155,6 +155,7 @@ function syncCalendar() {
   const calId = p.getProperty("CALENDAR_ID");
   let cal = calId && CalendarApp.getCalendarById(calId);
   if (!cal) { cal = CalendarApp.createCalendar("Family Home Base"); p.setProperty("CALENDAR_ID", cal.getId()); }
+  if (cal.getTimeZone() !== Session.getScriptTimeZone()) cal.setTimeZone(Session.getScriptTimeZone());
 
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end = new Date(start); end.setDate(end.getDate() + 28);
@@ -178,7 +179,7 @@ function syncCalendar() {
   games_().forEach(g => {
     const s = new Date(g.start), e = new Date(g.end);
     if (s >= end || e < start) return;
-    const ev = g.allDay ? cal.createAllDayEvent(kidName(g.kid) + ": " + g.title, s)
+    const ev = g.allDay ? cal.createAllDayEvent(kidName(g.kid) + ": " + g.title, s, e > s ? e : new Date(s.getTime() + 864e5))
       : cal.createEvent(kidName(g.kid) + ": " + g.title, s, e, { location: g.location || "" });
     ev.setTag("fhb", "1");
   });
