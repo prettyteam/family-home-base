@@ -8,8 +8,8 @@
  *   KID_PIN_<kid id>  a child's own view: his assignments (check off only) and his calendar
  */
 const SHEET_ID = "1TFjO180dVUddqTtr2cAeDgspTEejo0u8aYnfrUS_Kh0"; // "Family Home Base Data" in Alexandra's Drive
-const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos", "events"];
-const NANNY_WRITES = { shifts: ["set", "update"], assignments: ["set", "update"], todos: ["set", "update", "delete"] };
+const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos", "events", "chores"];
+const NANNY_WRITES = { shifts: ["set", "update"], assignments: ["set", "update"], todos: ["set", "update", "delete"], chores: ["set"] };
 
 function out_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -49,6 +49,9 @@ function rows_(name) {
 function purgeOldTodos_() {
   const cutoff = Date.now() - 7 * 864e5;
   rows_("todos").filter(t => t.done && t.doneAt && new Date(t.doneAt).getTime() < cutoff).forEach(t => write_("delete", "todos", t._id));
+  // Daily home-task check-offs are kept for 5 weeks.
+  const old = Utilities.formatDate(new Date(Date.now() - 35 * 864e5), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  rows_("chores").filter(c => c.date && c.date < old).forEach(c => write_("delete", "chores", c._id));
 }
 
 function readAll_(role) {
@@ -70,6 +73,7 @@ function readAll_(role) {
       activities: data.activities.filter(mine),
       events: data.events.filter(mine),
       games: data.games.filter(mine),
+      chores: data.chores.filter(r => r.kid === me),
       shifts: [], todos: []
     };
   }
@@ -99,6 +103,14 @@ function write_(op, coll, id, data) {
   return id;
 }
 
+/** A home-task check-off: id "ch-<kid>-<yyyy-mm-dd>-<task>". A child may only check off his own. */
+function choreCheck_(id, data, onlyKid) {
+  const m = /^ch-([a-z0-9]+)-(\d{4}-\d{2}-\d{2})-([a-z0-9-]{1,30})$/.exec(String(id || ""));
+  if (!m || (onlyKid && m[1] !== onlyKid)) throw new Error("Ask Mom to change that.");
+  const done = !!(data || {}).done;
+  return { kid: m[1], date: m[2], task: m[3], done: done, doneAt: done ? new Date().toISOString() : "" };
+}
+
 function doGet() {
   return out_({ ok: true, app: "Family Home Base" });
 }
@@ -111,8 +123,12 @@ function doPost(e) {
     const op = body.action, coll = body.coll;
     if (["set", "update", "delete"].indexOf(op) < 0 || COLLS.indexOf(coll) < 0) throw new Error("Unknown request.");
     if (role === "nanny" && (NANNY_WRITES[coll] || []).indexOf(op) < 0) throw new Error("Only Alexandra can change that.");
-    if (role.indexOf("kid:") === 0) {
-      // Kids can only check their own assignments on or off.
+    if (coll === "chores") {
+      if (op !== "set") throw new Error("Ask Mom to change that.");
+      body.data = choreCheck_(body.id, body.data, role.indexOf("kid:") === 0 ? role.slice(4) : "");
+    }
+    else if (role.indexOf("kid:") === 0) {
+      // Kids can only check their own assignments and home tasks on or off.
       const rec = rows_("assignments").filter(r => r._id === String(body.id))[0];
       if (op !== "update" || coll !== "assignments" || !rec || rec.kid !== role.slice(4)) throw new Error("Ask Mom to change that.");
       body.data = { done: !!(body.data || {}).done, doneAt: (body.data || {}).done ? new Date().toISOString() : "" };
