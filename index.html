@@ -167,7 +167,7 @@ const fmtDate = s => { const d = parseYmd(s); return DAYS[d.getDay()]+", "+d.toL
 const dueLabel = s => { if(!s) return ["No due date",""]; const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
   if(n<0) return ["Overdue","bad"]; if(n===0) return ["Due today","warn"]; if(n===1) return ["Due tomorrow","warn"]; return ["Due "+fmtDate(s),""]; };
 
-const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], games:[], loaded:{} };
+const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], chores:[], games:[], loaded:{} };
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
@@ -182,7 +182,7 @@ const nannyName = () => (S.settings && S.settings.nannyName) || "Nanny";
 const isMom = () => viewAs === "mom";
 
 /* ---------- data (Google Sheet via Apps Script) ---------- */
-const COLLS = ["shifts","assignments","grades","activities","todos","events"];
+const COLLS = ["shifts","assignments","grades","activities","todos","events","chores"];
 async function api(body){
   const r = await fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({pin}, body))});
   const j = await r.json(); if(!j.ok) throw new Error(j.error || "Something went wrong"); return j;
@@ -245,6 +245,41 @@ function payFor(list, wk){
 }
 function todayShift(){ const t = ymd(new Date()); return S.shifts.find(s => s.date === t); }
 
+/* ---------- daily home tasks ---------- */
+const HOME_TASKS = [
+  {key:"med-am", label:"Take your morning medicine", kid:"grayson"},
+  {key:"med-pm", label:"Take your evening medicine", kid:"grayson"},
+  {key:"clothes-floor", label:"No clothes on the floor"},
+  {key:"clothes-away", label:"Hang up and put away clean clothes"},
+  {key:"drinks", label:"Bring down any empty drinks from your room"},
+  {key:"trash-out", label:"Take the trash out tonight", day:2, trash:true},
+  {key:"cans-in", label:"Bring the trash cans in after school", day:3, trash:true}
+];
+/* Trash week alternates between the boys. settings.trashStart is who has the week of Oct 12, 2026. */
+function trashKid(d){
+  const ks = kids(); if(!ks.length) return "";
+  const start = (S.settings && S.settings.trashStart) || ks[0].id, i = Math.max(0, ks.findIndex(k=>k.id===start));
+  const wk = Math.round((mondayOf(d) - new Date(2026,9,12)) / (7*864e5));
+  return ks[((i + wk) % ks.length + ks.length) % ks.length].id;
+}
+function tasksFor(kid, d){
+  return HOME_TASKS.filter(t => (!t.kid || t.kid === kid) && (t.day === undefined || t.day === d.getDay()) && (!t.trash || trashKid(d) === kid));
+}
+const choreId = (kid, d, key) => "ch-"+kid+"-"+ymd(d)+"-"+key;
+const choreDone = (kid, d, key) => { const c = S.chores.find(x => x._id === choreId(kid,d,key)); return !!(c && c.done); };
+function homeTasksList(kid, d){
+  const list = tasksFor(kid, d);
+  return `<ul class="list">${list.map(t => { const on = choreDone(kid,d,t.key);
+    return `<li class="${on?"done":""}"><input type="checkbox" class="check" data-chore="${choreId(kid,d,t.key)}" ${on?"checked":""} ${readOnly?"disabled":""} aria-label="${esc(t.label)}"><div class="grow"><div class="t">${esc(t.label)}</div></div>${on?`<span class="chip good">Done</span>`:""}</li>`; }).join("")}</ul>`;
+}
+function homeTasksPanel(){
+  const d = new Date(), tk = trashKid(d);
+  return `<section class="panel"><div class="row"><h3 style="margin:0">Daily home tasks</h3>${isMom()&&!readOnly&&kids().length>1?`<button class="btn ghost small" id="trashSwap">Switch trash week</button>`:""}</div>
+    <p class="note">${tk?esc(kidName(tk))+" has trash this week (out Tuesday night, cans in Wednesday after school).":""}</p>
+    <div class="grid2">${kids().map(k => { const n = tasksFor(k.id,d).filter(t=>choreDone(k.id,d,t.key)).length;
+      return `<div><h3 style="color:${kidColor(k.id)}">${esc(k.name)} · ${n} of ${tasksFor(k.id,d).length}</h3>${homeTasksList(k.id,d)}</div>`; }).join("")}</div></section>`;
+}
+
 /* ---------- renderers ---------- */
 function exTag(o){ return o && o.example ? ` <span class="ex">Example</span>` : ""; }
 
@@ -274,6 +309,7 @@ function renderToday(){
     <section class="panel"><h3>Today's activities</h3>${acts.length ? `<ul class="list">${acts.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}${exTag(a)}</div><div class="meta num">${esc(kidName(a.kid))} · ${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?" · "+esc(a.location):""}</div></div>${a.driver?`<span class="chip">${esc(a.driver)} drives</span>`:""}</li>`).join("")}</ul>` : `<p class="empty">Nothing on the calendar for ${DAYS_LONG[wd]}.</p>`}</section>
     <section class="panel"><h3>Schoolwork due in the next 3 days</h3>${due.length ? `<ul class="list">${due.map(assignLi).join("")}</ul>` : `<p class="empty">Nothing due soon. Nice.</p>`}</section>
   </div>
+  ${homeTasksPanel()}
   <section class="panel"><h3>Open to-dos</h3>${todos.length ? `<ul class="list">${todos.map(todoLi).join("")}</ul>` : `<p class="empty">All caught up.</p>`}</section>`;
 }
 
@@ -481,7 +517,14 @@ function dayAgenda(d){
 }
 function renderKid(){
   const me = kidById(kidMode) || {name:"", id:kidMode};
-  const tabs = `<nav class="tabs" role="tablist" aria-label="Sections" style="margin-top:0"><button role="tab" data-ktab="work" aria-selected="${kidTab==="work"}">My assignments</button><button role="tab" data-ktab="cal" aria-selected="${kidTab==="cal"}">My calendar</button></nav>`;
+  const tabs = `<nav class="tabs" role="tablist" aria-label="Sections" style="margin-top:0"><button role="tab" data-ktab="work" aria-selected="${kidTab==="work"}">My assignments</button><button role="tab" data-ktab="home" aria-selected="${kidTab==="home"}">Home tasks</button><button role="tab" data-ktab="cal" aria-selected="${kidTab==="cal"}">My calendar</button></nav>`;
+  if(kidTab === "home"){
+    const d = new Date(), list = tasksFor(me.id, d), n = list.filter(t=>choreDone(me.id,d,t.key)).length;
+    const tk = trashKid(d), next = trashKid(addDays(d,7));
+    return tabs + `<section class="panel"><h3>Today · ${n} of ${list.length} done</h3>${homeTasksList(me.id, d)}
+      ${n===list.length?`<p class="empty">All done for today. Thank you, ${esc(me.name)}!</p>`:""}
+      <p class="note" style="margin-top:10px">${tk===me.id?"It's your trash week: trash out Tuesday night, cans in Wednesday after school.":next===me.id?"Next week is your trash week.":""} These start fresh every morning.</p></section>`;
+  }
   if(kidTab === "cal"){
     const days = Array.from({length:14}, (_,i) => addDays(new Date(), i));
     return tabs + days.map((d,i) => { const list = dayAgenda(d);
@@ -523,6 +566,9 @@ function bind(){
   document.querySelectorAll("[data-edit-act]").forEach(b => b.onclick = () => actForm(find(S.activities,b.dataset.editAct)));
   document.querySelectorAll("[data-edit-todo]").forEach(b => b.onclick = () => todoForm(find(S.todos,b.dataset.editTodo)));
   document.querySelectorAll("[data-edit-event]").forEach(b => b.onclick = () => eventForm(find(S.events,b.dataset.editEvent)));
+  document.querySelectorAll("[data-chore]").forEach(c => c.onchange = () => save("chores", c.dataset.chore, {done: c.checked}));
+  on("#trashSwap", () => { const ks = kids(), cur = (S.settings && S.settings.trashStart) || ks[0].id, i = ks.findIndex(k=>k.id===cur);
+    save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
 }
 
