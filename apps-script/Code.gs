@@ -130,7 +130,14 @@ function setupCalendarSync() {
 function syncIfChanged() {
   const p = PropertiesService.getScriptProperties();
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
-  if (p.getProperty("CAL_DIRTY") === "1" || p.getProperty("CAL_LAST_DAY") !== today) syncCalendar();
+  // Also catch edits made straight in the Sheet (not through the app).
+  const digest = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
+    JSON.stringify(["settings", "shifts", "activities"].map(c => sheet_(c).getDataRange().getValues()))));
+  const changed = p.getProperty("CAL_DIGEST") !== digest;
+  if (changed || p.getProperty("CAL_DIRTY") === "1" || p.getProperty("CAL_LAST_DAY") !== today) {
+    syncCalendar();
+    p.setProperty("CAL_DIGEST", digest);
+  }
 }
 
 /** Copies the weekly activities and the nanny's shifts for the next 4 weeks into the "Family Home Base" calendar. */
