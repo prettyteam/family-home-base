@@ -440,7 +440,7 @@ function setupForm(){
 function render(){
   const t = new Date();
   $("#signOut").hidden = !db;
-  $("#todayLine").textContent = DAYS_LONG[t.getDay()] + ", " + t.toLocaleDateString(undefined,{month:"long",day:"numeric"}) + (kids().length ? " · " + kids().map(k=>k.name).join(", ") : "");
+  $("#todayLine").textContent = DAYS_LONG[t.getDay()] + ", " + t.toLocaleDateString(undefined,{month:"long",day:"numeric"}) + (kids().length && !kidMode ? " · " + kids().map(k=>k.name).join(", ") : "");
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab===tab)));
   const m = $("#main");
   if(!db){ renderLogin(); return; }
