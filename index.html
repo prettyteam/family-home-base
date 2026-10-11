@@ -129,7 +129,7 @@ body{top:0!important}
       <span class="meta">Viewing as</span>
       <div class="seg" role="group" aria-label="Viewing as">
         <button id="asMom" aria-pressed="true">Alexandra</button>
-        <button id="asNanny" aria-pressed="false">Nanny</button>
+        <button id="asNanny" aria-pressed="false">Rafa</button>
       </div>
     </div>
     <div class="row" style="gap:6px">
@@ -141,7 +141,7 @@ body{top:0!important}
 
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
-    <button role="tab" data-tab="hours" aria-selected="false">Nanny hours</button>
+    <button role="tab" data-tab="hours" aria-selected="false">Rafa's hours</button>
     <button role="tab" data-tab="school" aria-selected="false">School</button>
     <button role="tab" data-tab="activities" aria-selected="false">Activities</button>
     <button role="tab" data-tab="todos" aria-selected="false">To-dos</button>
@@ -149,7 +149,7 @@ body{top:0!important}
   </nav>
 
   <main id="main">
-    <div class="panel"><p class="empty">Opening your home base… Once it connects, your nanny's schedule, the kids' schoolwork and the week's activities show up here.</p></div>
+    <div class="panel"><p class="empty">Opening your home base… Once it connects, Rafa's schedule, the kids' schoolwork and the week's activities show up here.</p></div>
   </main>
 </div>
 
@@ -371,7 +371,7 @@ function renderHours(){
     <tbody>${list.length ? list.map(s=>`<tr><td>${fmtDate(s.date)}${exTag(s)}</td><td class="num">${s.start?fmtT(s.start)+" – "+fmtT(s.end):"—"}</td><td class="num">${s.inAt?fmtT(s.inAt):"—"} – ${s.outAt?fmtT(s.outAt):(s.inAt?"on now":"—")}</td><td class="num">${fmtH(s.outAt?workedHours(s):hrs(s.start,s.end))}${s.outAt?"":" <span class='meta'>sched.</span>"}</td><td>${esc(s.note||"")}</td><td>${!readOnly?`<button class="btn ghost small" data-edit-shift="${s._id}">${isMom()?"Edit":"Fix time"}</button>`:""}</td></tr>`).join("") : `<tr><td colspan="6" class="empty">No shifts this week yet.${isMom()?" Add one, or copy last week's schedule.":""}</td></tr>`}</tbody>
   </table></div></section>
   ${isMom() && st.payType==="weekly" && Number(st.bonusAmount) ? `<section class="panel"><label class="row" for="bonusChk" style="justify-content:flex-start;gap:10px;cursor:pointer"><input type="checkbox" class="check" id="bonusChk" ${bonusWeek(weekStart)?"checked":""} ${readOnly?"disabled":""}><span><span class="t">${esc(nannyName())} did extra tasks this week</span><br><span class="meta">Adds ${money(Number(st.bonusAmount))} to this week's pay. ${S.todos.filter(x=>x.extra==="yes"&&x.done).length} extra-task to-dos checked off recently.</span></span></label></section>` : ""}
-  ${isMom()?`<section class="panel"><div class="row"><h3 style="margin:0">Pay setup</h3>${!readOnly?`<button class="btn small" id="paySetup">Edit pay setup</button>`:""}</div><p class="note">${st.payType==="weekly"?`${money(Number(st.weeklyPay)||0)} a week${st.payNote?" ("+esc(st.payNote)+")":""}${Number(st.bonusAmount)?`, plus ${money(Number(st.bonusAmount))} in weeks with extra tasks`:""}.`:`Hourly at ${money(Number(st.rate)||0)}${st.overtime==="yes"?", with 1.5× after 40 hours":""}.`} ${st.showPayToNanny==="yes"?"Your nanny can see the pay total.":"Your nanny sees her hours but not the pay total."} Hours worked subtract any unpaid break minutes entered on a shift.</p></section>`:""}`;
+  ${isMom()?`<section class="panel"><div class="row"><h3 style="margin:0">Pay setup</h3>${!readOnly?`<button class="btn small" id="paySetup">Edit pay setup</button>`:""}</div><p class="note">${st.payType==="weekly"?`${money(Number(st.weeklyPay)||0)} a week${st.payNote?" ("+esc(st.payNote)+")":""}${Number(st.bonusAmount)?`, plus ${money(Number(st.bonusAmount))} in weeks with extra tasks`:""}.`:`Hourly at ${money(Number(st.rate)||0)}${st.overtime==="yes"?", with 1.5× after 40 hours":""}.`} ${st.showPayToNanny==="yes"?esc(nannyName())+" can see the pay total.":esc(nannyName())+" sees her hours but not the pay total."} Hours worked subtract any unpaid break minutes entered on a shift.</p></section>`:""}`;
 }
 
 function shiftForm(s){
@@ -493,7 +493,7 @@ function notesHtml(h){
 function renderNotes(){
   const h = (S.settings && S.settings.houseNotes) || "";
   return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3><div class="row" style="gap:6px"><button class="btn small notranslate" data-translate>Translate</button>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div></div>
-    ${h?`<div style="white-space:pre-wrap;max-width:65ch">${notesHtml(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else your nanny should always have handy.</p>`}
+    ${h?`<div style="white-space:pre-wrap;max-width:65ch">${notesHtml(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else ${esc(nannyName())} should always have handy.</p>`}
 </section>`;
 }
 function todoForm(x){
@@ -513,7 +513,7 @@ function setupForm(){
     {key:"rate",label:"Hourly rate ($)",type:"number",step:"0.25"},{key:"weeklyPay",label:"Weekly pay ($)",type:"number",step:"1"},
     {key:"bonusAmount",label:"Extra-tasks bonus per week ($)",type:"number",step:"1"},{key:"payNote",label:"How and when you pay",ph:"e.g. Zelle every Friday"},
     {key:"overtime",label:"Overtime",type:"select",options:[["no","No overtime"],["yes","1.5× after 40 hours"]]},
-    {key:"showPayToNanny",label:"Nanny can see pay total",type:"select",options:[["no","No"],["yes","Yes"]]}],
+    {key:"showPayToNanny",label:nannyName()+" can see pay total",type:"select",options:[["no","No"],["yes","Yes"]]}],
     Object.assign({}, st, {kidsText: kids().map(k=>[k.name,k.grade,k.school].filter(Boolean).join(", ")).join("\n")}), v => {
       const old = kids();
       const ks = v.kidsText.split("\n").map(l=>l.trim()).filter(Boolean).map((l,i)=>{ const [name,grade,school] = l.split(",").map(s=>s.trim()); const prev = old.find(k=>k.name===name) || old[i]; return {id: prev ? prev.id : "k"+Date.now().toString(36)+i, name, grade:grade||"", school:school||""}; });
@@ -588,7 +588,7 @@ function bind(){
     const have = new Set(weekShifts(weekStart).map(s=>s.date));
     for(const s of prev){ const nd = ymd(addDays(parseYmd(s.date),7)); if(have.has(nd)) continue; await save("shifts", null, {date:nd,start:s.start,end:s.end,inAt:"",outAt:"",note:s.note||""}); } });
   on("#addAssign", () => assignForm(null)); on("#addGrade", () => gradeForm(null)); on("#addAct", () => actForm(null)); on("#addTodo", () => todoForm(null)); on("#addEvent", () => eventForm(null));
-  on("#editHouse", () => openForm("Family Facts", [{key:"houseNotes",label:"Notes your nanny should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
+  on("#editHouse", () => openForm("Family Facts", [{key:"houseNotes",label:"Notes "+nannyName()+" should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
   document.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { kidFilter = b.dataset.kid; render(); });
   document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
   document.querySelectorAll("[data-todo]").forEach(c => c.onchange = () => patch("todos", c.dataset.todo, {done: c.checked, doneAt: c.checked ? new Date().toISOString() : ""}));
