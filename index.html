@@ -10,23 +10,23 @@
 <style>
 /* Layout: one column "home binder" with a sticky tab strip; each tab is a page of the binder. */
 :root{
-  --bg:#fbf6f4; --surface:#ffffff; --ink:#2b1d27; --muted:#7a6672; --line:#ecdfe0;
-  --accent:#9e3f66; --accent-ink:#ffffff; --accent-soft:#f7e6ed;
+  --bg:#faf6f1; --surface:#ffffff; --ink:#2e2622; --muted:#7a6c63; --line:#ece2d8;
+  --accent:#7d6350; --accent-ink:#ffffff; --accent-soft:#f6e9e4;
   --good:#2f7d5b; --good-soft:#e3f2ea; --warn:#a8670f; --warn-soft:#fbefd9; --bad:#b0353c; --bad-soft:#f9e1e2;
-  --k0:#b34a74; --k1:#4f8a6e; --k2:#4d6fa3; --k3:#b0842a;
+  --k0:#b06a76; --k1:#5f8a78; --k2:#5b77a3; --k3:#a8842a;
   --display:"Bodoni Moda", "Didot", Georgia, serif;
   --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#191317; --surface:#231b20; --ink:#f3e9ee; --muted:#b39faa; --line:#3a2d34;
-  --accent:#e58bb0; --accent-ink:#2a1420; --accent-soft:#3a2430;
+  --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
+  --accent:#dcbfa6; --accent-ink:#2a1f17; --accent-soft:#3a2f27;
   --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224;
-  --k0:#e58bb0; --k1:#82c4a4; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }}
+  --k0:#e3a6ae; --k1:#8fc0aa; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }}
 :root[data-theme="dark"]{
-  --bg:#191317; --surface:#231b20; --ink:#f3e9ee; --muted:#b39faa; --line:#3a2d34;
-  --accent:#e58bb0; --accent-ink:#2a1420; --accent-soft:#3a2430;
+  --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
+  --accent:#dcbfa6; --accent-ink:#2a1f17; --accent-soft:#3a2f27;
   --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224;
-  --k0:#e58bb0; --k1:#82c4a4; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }
+  --k0:#e3a6ae; --k1:#8fc0aa; --k2:#8eabd9; --k3:#dcb766; color-scheme:dark }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5}
