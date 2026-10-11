@@ -110,6 +110,11 @@ label.f input,label.f select,label.f textarea{font:inherit;font-size:15px;color:
 .actions .left{margin-right:auto}
 .err{color:var(--bad);font-size:13px}
 @media (prefers-reduced-motion:no-preference){.btn,nav.tabs button{transition:background .15s,color .15s}}
+/* Google Translate: hide its top bar and tooltips; the page keeps its own layout. */
+.skiptranslate iframe, .goog-te-banner-frame, #goog-gt-tt, .goog-te-balloon-frame{display:none!important}
+body{top:0!important}
+.goog-text-highlight{background:none!important;box-shadow:none!important}
+#gtEl{display:none}
 </style>
 </head>
 <body>
@@ -127,8 +132,12 @@ label.f input,label.f select,label.f textarea{font:inherit;font-size:15px;color:
         <button id="asNanny" aria-pressed="false">Nanny</button>
       </div>
     </div>
-    <button class="btn ghost small" id="signOut" hidden>Sign out</button>
+    <div class="row" style="gap:6px">
+      <button class="btn ghost small notranslate" data-translate>Translate</button>
+      <button class="btn ghost small" id="signOut" hidden>Sign out</button>
+    </div>
   </header>
+  <div id="gtEl"></div>
 
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button role="tab" data-tab="today" aria-selected="true">Today</button>
@@ -272,6 +281,27 @@ function homeTasksList(kid, d){
   return `<ul class="list">${list.map(t => { const on = choreDone(kid,d,t.key);
     return `<li class="${on?"done":""}"><input type="checkbox" class="check" data-chore="${choreId(kid,d,t.key)}" ${on?"checked":""} ${readOnly?"disabled":""} aria-label="${esc(t.label)}"><div class="grow"><div class="t">${esc(t.label)}</div></div>${on?`<span class="chip good">Done</span>`:""}</li>`; }).join("")}</ul>`;
 }
+/* Rafa's daily checklist, from the Daily Duties in Family Facts. school:true = school days only. */
+const NANNY_TASKS = [
+  {key:"n-breakfast", label:"6:00 wake-up: breakfast, Grayson's morning meds, teeth brushed", school:true},
+  {key:"n-laundry", label:"Laundry (leave the boys' clean piles in the guest room)"},
+  {key:"n-beds", label:"Make the beds, including Alexandra's"},
+  {key:"n-gear", label:"Clothes, uniforms and gear ready for practices and games"},
+  {key:"n-snack", label:"After-school snack: apple and peanut butter for Grayson, bagel and cream cheese for Julian", school:true},
+  {key:"n-fruit", label:"Fresh fruit rinsed and cut for the kids"},
+  {key:"n-dinner", label:"Dinner ready by 5:30"},
+  {key:"n-tidy", label:"Tidy common areas and the kitchen sink, load and unload the dishwasher"},
+  {key:"n-audrey", label:"Audrey's food and water full, bathroom and bedroom doors shut"},
+  {key:"n-skylight", label:"Update the Skylight: appointments, activities, assignments, chores, dinner plan"},
+  {key:"n-stock", label:"Check snacks, vitamins and toiletries, and note anything low"}
+];
+function nannyTasksPanel(){
+  const d = new Date(), wd = d.getDay(), school = wd > 0 && wd < 6;
+  const list = NANNY_TASKS.filter(t => !t.school || school), n = list.filter(t => choreDone("nanny", d, t.key)).length;
+  return `<section class="panel"><h3>${esc(nannyName())}'s daily checklist · ${n} of ${list.length}</h3><ul class="list">${list.map(t => { const on = choreDone("nanny", d, t.key);
+    return `<li class="${on?"done":""}"><input type="checkbox" class="check" data-chore="${choreId("nanny",d,t.key)}" ${on?"checked":""} ${readOnly?"disabled":""} aria-label="${esc(t.label)}"><div class="grow"><div class="t">${esc(t.label)}</div></div>${on?`<span class="chip good">Done</span>`:""}</li>`; }).join("")}</ul>
+    <p class="note" style="margin-top:10px">Starts fresh every morning.</p></section>`;
+}
 function homeTasksPanel(){
   const d = new Date(), tk = trashKid(d);
   return `<section class="panel"><div class="row"><h3 style="margin:0">Daily home tasks</h3>${isMom()&&!readOnly&&kids().length>1?`<button class="btn ghost small" id="trashSwap">Switch trash week</button>`:""}</div>
@@ -309,6 +339,7 @@ function renderToday(){
     <section class="panel"><h3>Today's activities</h3>${acts.length ? `<ul class="list">${acts.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}${exTag(a)}</div><div class="meta num">${esc(kidName(a.kid))} · ${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?" · "+esc(a.location):""}</div></div>${a.driver?`<span class="chip">${esc(a.driver)} drives</span>`:""}</li>`).join("")}</ul>` : `<p class="empty">Nothing on the calendar for ${DAYS_LONG[wd]}.</p>`}</section>
     <section class="panel"><h3>Schoolwork due in the next 3 days</h3>${due.length ? `<ul class="list">${due.map(assignLi).join("")}</ul>` : `<p class="empty">Nothing due soon. Nice.</p>`}</section>
   </div>
+  ${nannyTasksPanel()}
   ${homeTasksPanel()}
   <section class="panel"><h3>Open to-dos</h3>${todos.length ? `<ul class="list">${todos.map(todoLi).join("")}</ul>` : `<p class="empty">All caught up.</p>`}</section>`;
 }
@@ -455,10 +486,14 @@ function renderTodos(){
     ${done.length?`<h3 style="margin-top:16px">Checked off</h3><ul class="list">${done.map(todoLi).join("")}</ul><p class="note">Checked items drop off the list after ${HIDE_DONE_AFTER_DAYS} days. Uncheck one to bring it back.</p>`:""}
   </section>`;
 }
+/* Logins and codes are never sent to the translator. */
+function notesHtml(h){
+  return h.split(/\n\s*\n/).map(b => `<div class="${/^\s*[^\n]*(LOGIN|CODE|PASSWORD)/i.test(b)?"notranslate":""}" style="margin-bottom:1em">${esc(b)}</div>`).join("");
+}
 function renderNotes(){
   const h = (S.settings && S.settings.houseNotes) || "";
-  return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div>
-    ${h?`<div style="white-space:pre-wrap;max-width:65ch">${esc(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else your nanny should always have handy.</p>`}
+  return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3><div class="row" style="gap:6px"><button class="btn small notranslate" data-translate>Translate</button>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div></div>
+    ${h?`<div style="white-space:pre-wrap;max-width:65ch">${notesHtml(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else your nanny should always have handy.</p>`}
 </section>`;
 }
 function todoForm(x){
@@ -570,6 +605,21 @@ function bind(){
   on("#trashSwap", () => { const ks = kids(), cur = (S.settings && S.settings.trashStart) || ks[0].id, i = ks.findIndex(k=>k.id===cur);
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
+}
+
+/* ---------- Portuguese translation (Google Translate, turned on per device) ---------- */
+const ptOn = () => /googtrans=\/en\/pt/.test(document.cookie);
+function setTranslate(on){
+  const host = location.hostname, exp = on ? "" : "; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  ["", "; domain="+host, "; domain=."+host].forEach(d => document.cookie = "googtrans=" + (on?"/en/pt":"") + "; path=/" + d + exp);
+  location.reload();
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-translate]"); if(b) setTranslate(!ptOn()); });
+function labelTranslate(){ document.querySelectorAll("[data-translate]").forEach(b => b.textContent = ptOn() ? "English" : "Translate"); }
+new MutationObserver(labelTranslate).observe($("#main"), {childList:true}); labelTranslate();
+if(ptOn()){
+  window.gtInit = () => new google.translate.TranslateElement({pageLanguage:"en", includedLanguages:"pt", autoDisplay:false}, "gtEl");
+  const sc = document.createElement("script"); sc.src = "https://translate.google.com/translate_a/element.js?cb=gtInit"; document.head.appendChild(sc);
 }
 
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; try{ localStorage.setItem("fhb-tab", tab); }catch(e){} render(); });
