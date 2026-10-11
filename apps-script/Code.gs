@@ -52,6 +52,8 @@ function readAll_(role) {
   purgeOldTodos_();
   const data = {};
   COLLS.forEach(c => data[c] = rows_(c));
+  data.games = games_();
+  data.settings.forEach(s => delete s.feeds); // feed links carry private tokens
   if (role === "nanny") {
     data.settings.forEach(s => { if (s.showPayToNanny !== "yes") { delete s.rate; delete s.weeklyPay; } });
   }
@@ -70,6 +72,11 @@ function write_(op, coll, id, data) {
   if (op === "update") {
     if (row < 0) throw new Error("That item no longer exists.");
     rec = Object.assign(JSON.parse(vals[row - 1][1] || "{}"), rec);
+  }
+  // The app never sees settings.feeds (they hold private links), so keep them when it saves settings.
+  if (coll === "settings" && op === "set" && row > 0 && !("feeds" in rec)) {
+    const old = JSON.parse(vals[row - 1][1] || "{}");
+    if (old.feeds) rec.feeds = old.feeds;
   }
   const line = [id, JSON.stringify(rec), new Date()];
   if (row > 0) sh.getRange(row, 1, 1, 3).setValues([line]); else sh.appendRow(line);
@@ -132,7 +139,7 @@ function syncIfChanged() {
   const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
   // Also catch edits made straight in the Sheet (not through the app).
   const digest = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5,
-    JSON.stringify(["settings", "shifts", "activities"].map(c => sheet_(c).getDataRange().getValues()))));
+    JSON.stringify(["settings", "shifts", "activities"].map(c => sheet_(c).getDataRange().getValues()).concat([games_()]))));
   const changed = p.getProperty("CAL_DIGEST") !== digest;
   if (changed || p.getProperty("CAL_DIRTY") === "1" || p.getProperty("CAL_LAST_DAY") !== today) {
     syncCalendar();
@@ -140,7 +147,7 @@ function syncIfChanged() {
   }
 }
 
-/** Copies the weekly activities and the nanny's shifts for the next 4 weeks into the "Family Home Base" calendar. */
+/** Copies the weekly activities, team games and the nanny's shifts for the next 4 weeks into the "Family Home Base" calendar. */
 function syncCalendar() {
   const p = PropertiesService.getScriptProperties();
   p.setProperty("CAL_DIRTY", "0");
@@ -168,6 +175,14 @@ function syncCalendar() {
     }
   });
 
+  games_().forEach(g => {
+    const s = new Date(g.start), e = new Date(g.end);
+    if (s >= end || e < start) return;
+    const ev = g.allDay ? cal.createAllDayEvent(kidName(g.kid) + ": " + g.title, s)
+      : cal.createEvent(kidName(g.kid) + ": " + g.title, s, e, { location: g.location || "" });
+    ev.setTag("fhb", "1");
+  });
+
   if (p.getProperty("SKYLIGHT_SHOW_SHIFTS") === "no") return;
   rows_("shifts").forEach(sh => {
     if (!sh.date || !sh.start || !sh.end) return;
@@ -177,6 +192,72 @@ function syncCalendar() {
     if (e <= s) e.setDate(e.getDate() + 1);
     cal.createEvent(nanny + " working", s, e, { description: sh.note || "" }).setTag("fhb", "1");
   });
+}
+
+/* ---------- Team calendars (GameChanger and other iCal links) ---------- */
+
+/**
+ * Upcoming events from the calendar links in settings.feeds ([{kid, url}]), for the next 60 days.
+ * Kept for 30 minutes so the app and the Skylight don't fetch the team calendar on every request.
+ */
+function games_() {
+  const settings = rows_("settings").filter(r => r._id === "main")[0] || {};
+  const feeds = settings.feeds || [];
+  if (!feeds.length) return [];
+  const cache = CacheService.getScriptCache();
+  const key = "games:" + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(feeds)));
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  const from = Date.now() - 864e5, to = Date.now() + 60 * 864e5;
+  let list = [];
+  feeds.forEach(f => {
+    try {
+      const res = UrlFetchApp.fetch(String(f.url).replace(/^webcal:/i, "https:"), { muteHttpExceptions: true });
+      if (res.getResponseCode() !== 200) return;
+      parseIcs_(res.getContentText()).forEach(ev => {
+        if (new Date(ev.end).getTime() < from || new Date(ev.start).getTime() > to) return;
+        list.push(Object.assign(ev, { kid: f.kid || "all", feed: f.name || "" }));
+      });
+    } catch (e) { console.warn("Couldn't read a team calendar: " + e.message); return; }
+  });
+  list.sort((a, b) => a.start.localeCompare(b.start));
+  list = list.slice(0, 150);
+  cache.put(key, JSON.stringify(list), 1800);
+  return list;
+}
+
+function parseIcs_(text) {
+  const lines = text.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r?\n/);
+  const tz = Session.getScriptTimeZone(), out = [];
+  const unesc = v => String(v || "").replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1").trim();
+  const when = (params, v) => {
+    if (/^\d{8}$/.test(v)) return { d: Utilities.parseDate(v, tz, "yyyyMMdd"), allDay: true };
+    if (/Z$/.test(v)) return { d: Utilities.parseDate(v, "UTC", "yyyyMMdd'T'HHmmss'Z'"), allDay: false };
+    const z = (params.match(/TZID=([^;:]+)/) || [])[1] || tz;
+    return { d: Utilities.parseDate(v, z, "yyyyMMdd'T'HHmmss"), allDay: false };
+  };
+  let ev = null;
+  lines.forEach(line => {
+    if (line === "BEGIN:VEVENT") { ev = {}; return; }
+    if (line === "END:VEVENT") {
+      if (ev && ev.start && !/^CANCEL/i.test(ev.status || "")) {
+        const end = ev.end || { d: new Date(ev.start.d.getTime() + (ev.start.allDay ? 864e5 : 36e5)), allDay: ev.start.allDay };
+        out.push({ title: ev.title || "Team event", start: ev.start.d.toISOString(), end: end.d.toISOString(), allDay: ev.start.allDay, location: ev.location || "" });
+      }
+      ev = null; return;
+    }
+    if (!ev) return;
+    const i = line.indexOf(":"); if (i < 0) return;
+    const head = line.slice(0, i), val = line.slice(i + 1), name = head.split(";")[0].toUpperCase();
+    try {
+      if (name === "DTSTART") ev.start = when(head, val);
+      else if (name === "DTEND") ev.end = when(head, val);
+      else if (name === "SUMMARY") ev.title = unesc(val);
+      else if (name === "LOCATION") ev.location = unesc(val);
+      else if (name === "STATUS") ev.status = val;
+    } catch (e) {}
+  });
+  return out;
 }
 
 /** Optional: run once from the editor to load example entries for a preview. */
