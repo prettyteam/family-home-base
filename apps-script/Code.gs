@@ -149,9 +149,14 @@ function syncIfChanged() {
 
 /** Copies the weekly activities, team games and the nanny's shifts for the next 4 weeks into the "Family Home Base" calendar. */
 function syncCalendar() {
+  // One sync at a time: the 15-minute timer and a manual run must not overlap.
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1000)) return;
+  try { syncCalendarNow_(); } finally { lock.releaseLock(); }
+}
+
+function syncCalendarNow_() {
   const p = PropertiesService.getScriptProperties();
-  p.setProperty("CAL_DIRTY", "0");
-  p.setProperty("CAL_LAST_DAY", Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"));
   const calId = p.getProperty("CALENDAR_ID");
   let cal = calId && CalendarApp.getCalendarById(calId);
   if (!cal) { cal = CalendarApp.createCalendar("Family Home Base"); p.setProperty("CALENDAR_ID", cal.getId()); }
@@ -159,40 +164,60 @@ function syncCalendar() {
 
   const start = new Date(); start.setHours(0, 0, 0, 0);
   const end = new Date(start); end.setDate(end.getDate() + 28);
-  cal.getEvents(start, end).forEach(ev => { if (ev.getTag("fhb")) ev.deleteEvent(); });
 
   const settings = rows_("settings").filter(r => r._id === "main")[0] || {};
   const kids = settings.kids || [], nanny = settings.nannyName || "Nanny";
   const kidName = id => (kids.filter(k => k.id === id)[0] || {}).name || "Family";
   const at = (d, hm) => { const [h, m] = String(hm).split(":").map(Number); const x = new Date(d); x.setHours(h || 0, m || 0, 0, 0); return x; };
 
+  // Everything the calendar should hold for the next 4 weeks.
+  const want = [];
   rows_("activities").forEach(a => {
     if (!a.start) return;
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
       if (d.getDay() !== Number(a.day)) continue;
       const s = at(d, a.start), e = a.end ? at(d, a.end) : new Date(s.getTime() + 3600000);
       const notes = [a.driver ? a.driver + " drives" : "", a.bring ? "Bring: " + a.bring : ""].filter(String).join("\n");
-      cal.createEvent(kidName(a.kid) + ": " + a.name, s, e, { location: a.location || "", description: notes }).setTag("fhb", "1");
+      want.push({ title: kidName(a.kid) + ": " + a.name, s: s, e: e, location: a.location || "", description: notes });
     }
   });
-
   games_().forEach(g => {
     const s = new Date(g.start), e = new Date(g.end);
     if (s >= end || e < start) return;
-    const ev = g.allDay ? cal.createAllDayEvent(kidName(g.kid) + ": " + g.title, s, e > s ? e : new Date(s.getTime() + 864e5))
-      : cal.createEvent(kidName(g.kid) + ": " + g.title, s, e, { location: g.location || "" });
+    want.push({ title: kidName(g.kid) + ": " + g.title, s: s, e: e > s ? e : new Date(s.getTime() + 864e5), allDay: g.allDay, location: g.location || "", description: "" });
+  });
+  if (p.getProperty("SKYLIGHT_SHOW_SHIFTS") !== "no") {
+    rows_("shifts").forEach(sh => {
+      if (!sh.date || !sh.start || !sh.end) return;
+      const d = new Date(sh.date + "T00:00:00");
+      if (d < start || d >= end) return;
+      const s = at(d, sh.start), e = at(d, sh.end);
+      if (e <= s) e.setDate(e.getDate() + 1);
+      want.push({ title: nanny + " working", s: s, e: e, location: "", description: sh.note || "" });
+    });
+  }
+
+  // Only add and remove what changed, so repeated syncs stay under Google's calendar limits.
+  const key = (title, s, e, allDay, loc, desc) => [title, allDay ? "D" : "T", s.getTime(), e.getTime(), loc || "", desc || ""].join("|");
+  const need = {};
+  want.forEach(w => { need[key(w.title, w.s, w.e, w.allDay, w.location, w.description)] = w; });
+  cal.getEvents(start, end).forEach(ev => {
+    if (!ev.getTag("fhb")) return;
+    const allDay = ev.isAllDayEvent();
+    const k = key(ev.getTitle(), allDay ? ev.getAllDayStartDate() : ev.getStartTime(), allDay ? ev.getAllDayEndDate() : ev.getEndTime(), allDay, ev.getLocation(), ev.getDescription());
+    if (need[k]) delete need[k]; // already there (a second copy gets removed)
+    else { ev.deleteEvent(); Utilities.sleep(150); }
+  });
+  Object.keys(need).forEach(k => {
+    const w = need[k];
+    const ev = w.allDay ? cal.createAllDayEvent(w.title, w.s, w.e, { location: w.location })
+      : cal.createEvent(w.title, w.s, w.e, { location: w.location, description: w.description });
     ev.setTag("fhb", "1");
+    Utilities.sleep(150);
   });
 
-  if (p.getProperty("SKYLIGHT_SHOW_SHIFTS") === "no") return;
-  rows_("shifts").forEach(sh => {
-    if (!sh.date || !sh.start || !sh.end) return;
-    const d = new Date(sh.date + "T00:00:00");
-    if (d < start || d >= end) return;
-    const s = at(d, sh.start), e = at(d, sh.end);
-    if (e <= s) e.setDate(e.getDate() + 1);
-    cal.createEvent(nanny + " working", s, e, { description: sh.note || "" }).setTag("fhb", "1");
-  });
+  p.setProperty("CAL_DIRTY", "0");
+  p.setProperty("CAL_LAST_DAY", Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"));
 }
 
 /* ---------- Team calendars (GameChanger and other iCal links) ---------- */
