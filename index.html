@@ -181,7 +181,7 @@ const fmtDate = s => { const d = parseYmd(s); return DAYS[d.getDay()]+", "+d.toL
 const dueLabel = s => { if(!s) return ["No due date",""]; const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
   if(n<0) return ["Overdue","bad"]; if(n===0) return ["Due today","warn"]; if(n===1) return ["Due tomorrow","warn"]; return ["Due "+fmtDate(s),""]; };
 
-const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], chores:[], games:[], loaded:{} };
+const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], chores:[], games:[], cal:[], loaded:{} };
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
@@ -206,6 +206,7 @@ async function refresh(){
   S.settings = j.data.settings && j.data.settings.find(x=>x._id==="main") || null;
   COLLS.forEach(c => S[c] = j.data[c] || []);
   S.games = j.data.games || [];
+  S.cal = j.data.cal || [];
   ["settings"].concat(COLLS).forEach(c => S.loaded[c] = true);
   return j.role;
 }
@@ -335,7 +336,7 @@ function bindClock(){
 
 function renderToday(){
   const t = new Date(), tY = ymd(t), wd = t.getDay();
-  const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY), eventsOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
+  const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY), calOn(tY), eventsOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
   const soon = ymd(addDays(t,3));
   const due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
   const todos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom"));
@@ -436,6 +437,13 @@ function gradeForm(g){
 const gameAct = g => { const s = new Date(g.start), e = new Date(g.end);
   return {kid:g.kid, name:g.title, start:g.allDay?"":pad(s.getHours())+":"+pad(s.getMinutes()), end:g.allDay?"":pad(e.getHours())+":"+pad(e.getMinutes()), location:g.location, date:ymd(s)}; };
 const gamesOn = d => S.games.map(gameAct).filter(a => a.date === d);
+/* Events from Alexandra's own calendar (what she adds on the Skylight). */
+const calOn = d => S.cal.map(gameAct).filter(a => a.date === d);
+function calPanel(f){
+  const t = ymd(new Date()), until = ymd(addDays(new Date(),14));
+  const list = S.cal.map(gameAct).filter(a => a.date >= t && a.date <= until && f(a));
+  return `<section class="panel"><h3>From the Skylight calendar, next 2 weeks</h3>${list.length ? `<ul class="list">${list.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))} · ${fmtDate(a.date)}${a.start?" · "+fmtT(a.start)+(a.end?" – "+fmtT(a.end):""):" · all day"}${a.location?" · "+esc(a.location):""}</div></div><span class="chip src">Skylight</span></li>`).join("")}</ul>` : `<p class="empty">Nothing added on the Skylight for the next 2 weeks.</p>`}</section>`;
+}
 function gamesPanel(f){
   const t = ymd(new Date()), until = ymd(addDays(new Date(),14));
   const list = S.games.map(gameAct).filter(a => a.date >= t && a.date <= until && f(a));
@@ -465,8 +473,9 @@ function renderActivities(){
   <div class="scroll"><div class="week">${order.map(d=>{ const list = S.activities.filter(a=>Number(a.day)===d && f(a)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
     return `<div class="day ${d===tw?"today":""}"><div class="dh">${DAYS[d]}${d===tw?" · today":""}</div>${list.map(a=>`<button class="act" style="--kc:${kidColor(a.kid)}" data-edit-act="${a._id}" ${!isMom()||readOnly?"disabled":""}><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))}<br>${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?"<br>"+esc(a.location):""}${a.driver?"<br>"+esc(a.driver)+" drives":""}</div>${a.example?`<span class="ex">Example</span>`:""}</button>`).join("") || `<span class="meta">Free</span>`}</div>`; }).join("")}</div></div>
   ${eventsPanel(f)}
+  ${calPanel(f)}
   ${gamesPanel(f)}
-  <p class="note">The week grid is the repeating schedule. Team games come in on their own from the team calendar.</p>`;
+  <p class="note">The week grid is the repeating schedule. Team games and anything added on the Skylight come in on their own.</p>`;
 }
 function actForm(a){
   openForm(a?"Edit activity":"Add activity", [
@@ -553,7 +562,7 @@ let kidTab = "work";
 function dayAgenda(d){
   const y = ymd(d);
   return S.activities.filter(a => Number(a.day) === d.getDay()).map(a => ({name:a.name, start:a.start, end:a.end, location:a.location, kid:a.kid}))
-    .concat(gamesOn(y), eventsOn(y).map(e => ({name:e.title, start:e.start, end:e.end, location:e.location, kid:e.kid})))
+    .concat(gamesOn(y), calOn(y), eventsOn(y).map(e => ({name:e.title, start:e.start, end:e.end, location:e.location, kid:e.kid})))
     .sort((a,b)=>(a.start||"").localeCompare(b.start||""));
 }
 function renderKid(){
