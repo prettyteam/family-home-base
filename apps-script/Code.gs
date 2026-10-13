@@ -59,9 +59,11 @@ function readAll_(role) {
   const data = {};
   COLLS.forEach(c => data[c] = rows_(c));
   data.games = games_();
+  data.cal = familyCal_();
   data.settings.forEach(s => delete s.feeds); // feed links carry private tokens
   if (role === "nanny") {
     data.settings.forEach(s => { if (s.showPayToNanny !== "yes") { delete s.rate; delete s.weeklyPay; } });
+    data.cal = data.cal.filter(e => !e.work);
   }
   if (role.indexOf("kid:") === 0) {
     // A child sees only his own schoolwork and schedule: no pay, logins, shifts or family to-dos.
@@ -73,6 +75,7 @@ function readAll_(role) {
       activities: data.activities.filter(mine),
       events: data.events.filter(mine),
       games: data.games.filter(mine),
+      cal: data.cal.filter(e => !e.work && mine(e)),
       chores: data.chores.filter(r => r.kid === me),
       shifts: [], todos: []
     };
@@ -287,6 +290,44 @@ function syncCalendarNow_() {
 
   p.setProperty("CAL_DIRTY", "0");
   p.setProperty("CAL_LAST_DAY", Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"));
+}
+
+/* ---------- Alexandra's own calendar (what she adds on the Skylight) ---------- */
+
+/**
+ * Events on Alexandra's Google calendar (the one the Skylight adds to) for the next 30 days.
+ * Work events (video calls, client bookings) are marked so only her view shows them.
+ * Kept for 10 minutes. These are never copied into the "Family Home Base" calendar, so the Skylight doesn't show them twice.
+ */
+function familyCal_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get("familyCal");
+  if (hit) return JSON.parse(hit);
+  const settings = rows_("settings").filter(r => r._id === "main")[0] || {};
+  const kids = settings.kids || [];
+  const me = Session.getEffectiveUser().getEmail().toLowerCase();
+  const from = new Date(); from.setHours(0, 0, 0, 0);
+  const to = new Date(from.getTime() + 30 * 864e5);
+  let list = [];
+  try {
+    const cal = CalendarApp.getDefaultCalendar();
+    list = cal.getEvents(from, to).map(ev => {
+      const title = ev.getTitle() || "", loc = ev.getLocation() || "", desc = ev.getDescription() || "";
+      const guests = ev.getGuestList().map(g => g.getEmail().toLowerCase()).filter(e => e !== me);
+      const mineToo = String(ev.getCreators()[0] || "").toLowerCase() === me;
+      const work = /zoom\.us|meet\.google\.com|teams\.microsoft/i.test(loc + " " + desc)
+        || /hair|makeup|\bmu\b|brid|wedding|trial|taffeta|salon|client|bootcamp|webinar/i.test(title)
+        || (mineToo && guests.length > 0);
+      const named = kids.filter(k => new RegExp("\\b" + k.name + "\\b", "i").test(title));
+      const allDay = ev.isAllDayEvent();
+      const s = allDay ? ev.getAllDayStartDate() : ev.getStartTime(), e = allDay ? ev.getAllDayEndDate() : ev.getEndTime();
+      return { title: title, start: s.toISOString(), end: e.toISOString(), allDay: allDay, location: loc.split("\n")[0].slice(0, 120),
+        kid: named.length === 1 ? named[0].id : "all", work: work };
+    });
+  } catch (e) { console.warn("Couldn't read Alexandra's calendar: " + e.message); }
+  list.sort((a, b) => a.start.localeCompare(b.start));
+  list = list.slice(0, 150);
+  cache.put("familyCal", JSON.stringify(list), 600);
+  return list;
 }
 
 /* ---------- Team calendars (GameChanger and other iCal links) ---------- */
