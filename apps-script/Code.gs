@@ -59,7 +59,7 @@ function readAll_(role) {
   const data = {};
   COLLS.forEach(c => data[c] = rows_(c));
   data.games = games_();
-  data.cal = familyCal_();
+  try { data.cal = familyCal_(); } catch (e) { console.warn("Skipped Alexandra's calendar: " + e.message); data.cal = []; }
   data.settings.forEach(s => delete s.feeds); // feed links carry private tokens
   if (role === "nanny") {
     data.settings.forEach(s => { if (s.showPayToNanny !== "yes") { delete s.rate; delete s.weeklyPay; } });
@@ -304,12 +304,13 @@ function familyCal_() {
   if (hit) return JSON.parse(hit);
   const settings = rows_("settings").filter(r => r._id === "main")[0] || {};
   const kids = settings.kids || [];
-  const me = Session.getEffectiveUser().getEmail().toLowerCase();
   const from = new Date(); from.setHours(0, 0, 0, 0);
   const to = new Date(from.getTime() + 30 * 864e5);
   let list = [];
   try {
     const cal = CalendarApp.getDefaultCalendar();
+    // Her own address is the default calendar's id (asking Session for it would need an extra permission).
+    const me = cal.getId().toLowerCase();
     list = cal.getEvents(from, to).map(ev => {
       const title = ev.getTitle() || "", loc = ev.getLocation() || "", desc = ev.getDescription() || "";
       const guests = ev.getGuestList().map(g => g.getEmail().toLowerCase()).filter(e => e !== me);
