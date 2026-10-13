@@ -236,6 +236,7 @@ function syncCalendarNow_() {
     if (!a.start) return;
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
       if (d.getDay() !== Number(a.day)) continue;
+      if ((a.skip || []).indexOf(Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd")) >= 0) continue; // canceled that week
       const s = at(d, a.start), e = a.end ? at(d, a.end) : new Date(s.getTime() + 3600000);
       const notes = [a.driver ? a.driver + " drives" : "", a.bring ? "Bring: " + a.bring : ""].filter(String).join("\n");
       want.push({ title: kidName(a.kid) + ": " + a.name, s: s, e: e, location: a.location || "", description: notes });

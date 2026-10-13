@@ -336,7 +336,7 @@ function bindClock(){
 
 function renderToday(){
   const t = new Date(), tY = ymd(t), wd = t.getDay();
-  const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY), calOn(tY), eventsOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
+  const acts = S.activities.filter(a => Number(a.day) === wd && !skipped(a,tY)).concat(gamesOn(tY), calOn(tY), eventsOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
   const soon = ymd(addDays(t,3));
   const due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
   const todos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom"));
@@ -433,6 +433,8 @@ function gradeForm(g){
     g ? () => remove("grades", g._id) : null);
 }
 
+/* A weekly activity canceled for one week lists that date in a.skip. */
+const skipped = (a, d) => (a.skip || []).indexOf(d) >= 0;
 /* Team calendar events (GameChanger etc.), shaped like activities for display. */
 const gameAct = g => { const s = new Date(g.start), e = new Date(g.end);
   return {kid:g.kid, name:g.title, start:g.allDay?"":pad(s.getHours())+":"+pad(s.getMinutes()), end:g.allDay?"":pad(e.getHours())+":"+pad(e.getMinutes()), location:g.location, date:ymd(s)}; };
@@ -471,7 +473,7 @@ function renderActivities(){
   const f = a => kidFilter === "all" || a.kid === kidFilter || a.kid === "all";
   return `<div class="row"><div class="kids" role="group" aria-label="Show"><button data-kid="all" aria-pressed="${kidFilter==="all"}">All kids</button>${kids().map(k=>`<button data-kid="${k.id}" aria-pressed="${kidFilter===k.id}"><span class="dot" style="margin:0;background:${kidColor(k.id)}"></span>${esc(k.name)}</button>`).join("")}</div>${isMom()&&!readOnly?`<button class="btn primary" id="addAct">Add activity</button>`:""}</div>
   <div class="scroll"><div class="week">${order.map(d=>{ const list = S.activities.filter(a=>Number(a.day)===d && f(a)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
-    return `<div class="day ${d===tw?"today":""}"><div class="dh">${DAYS[d]}${d===tw?" · today":""}</div>${list.map(a=>`<button class="act" style="--kc:${kidColor(a.kid)}" data-edit-act="${a._id}" ${!isMom()||readOnly?"disabled":""}><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))}<br>${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?"<br>"+esc(a.location):""}${a.driver?"<br>"+esc(a.driver)+" drives":""}</div>${a.example?`<span class="ex">Example</span>`:""}</button>`).join("") || `<span class="meta">Free</span>`}</div>`; }).join("")}</div></div>
+    return `<div class="day ${d===tw?"today":""}"><div class="dh">${DAYS[d]}${d===tw?" · today":""}</div>${list.map(a=>`<button class="act" style="--kc:${kidColor(a.kid)}" data-edit-act="${a._id}" ${!isMom()||readOnly?"disabled":""}><div class="t">${esc(a.name)}</div><div class="meta num">${esc(kidName(a.kid))}<br>${fmtT(a.start)}${a.end?" – "+fmtT(a.end):""}${a.location?"<br>"+esc(a.location):""}${a.driver?"<br>"+esc(a.driver)+" drives":""}${skipped(a, ymd(addDays(new Date(), ((d - tw + 7) % 7))))?"<br><b>Canceled this week</b>":""}</div>${a.example?`<span class="ex">Example</span>`:""}</button>`).join("") || `<span class="meta">Free</span>`}</div>`; }).join("")}</div></div>
   ${eventsPanel(f)}
   ${calPanel(f)}
   ${gamesPanel(f)}
@@ -561,7 +563,7 @@ function render(){
 let kidTab = "work";
 function dayAgenda(d){
   const y = ymd(d);
-  return S.activities.filter(a => Number(a.day) === d.getDay()).map(a => ({name:a.name, start:a.start, end:a.end, location:a.location, kid:a.kid}))
+  return S.activities.filter(a => Number(a.day) === d.getDay() && !skipped(a,y)).map(a => ({name:a.name, start:a.start, end:a.end, location:a.location, kid:a.kid}))
     .concat(gamesOn(y), calOn(y), eventsOn(y).map(e => ({name:e.title, start:e.start, end:e.end, location:e.location, kid:e.kid})))
     .sort((a,b)=>(a.start||"").localeCompare(b.start||""));
 }
