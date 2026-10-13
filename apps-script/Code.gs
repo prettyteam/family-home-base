@@ -292,12 +292,14 @@ function syncCalendarNow_() {
   p.setProperty("CAL_LAST_DAY", Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd"));
 }
 
-/* ---------- Alexandra's own calendar (what she adds on the Skylight) ---------- */
+/* ---------- Alexandra's calendars (everything the Skylight shows) ---------- */
 
 /**
- * Events on Alexandra's Google calendar (the one the Skylight adds to) for the next 30 days.
- * Work events (video calls, client bookings) are marked so only her view shows them.
- * Kept for 10 minutes. These are never copied into the "Family Home Base" calendar, so the Skylight doesn't show them twice.
+ * Events for the next 30 days from every calendar in Alexandra's Google account: her own, plus
+ * the family and the boys' calendars once they're shared with her (the same ones the Skylight shows).
+ * Skips the "Family Home Base" calendar (the app already has those) and holidays.
+ * Work events (her business calendar, video calls, client bookings) are marked so only her view shows them.
+ * The same event on two calendars is listed once. Kept for 10 minutes.
  */
 function familyCal_() {
   const cache = CacheService.getScriptCache(), hit = cache.get("familyCal");
@@ -306,27 +308,43 @@ function familyCal_() {
   const kids = settings.kids || [];
   const from = new Date(); from.setHours(0, 0, 0, 0);
   const to = new Date(from.getTime() + 30 * 864e5);
+  const fhb = PropertiesService.getScriptProperties().getProperty("CALENDAR_ID");
   let list = [];
+  const seen = {};
   try {
-    const cal = CalendarApp.getDefaultCalendar();
+    const home = CalendarApp.getDefaultCalendar();
     // Her own address is the default calendar's id (asking Session for it would need an extra permission).
-    const me = cal.getId().toLowerCase();
-    list = cal.getEvents(from, to).map(ev => {
-      const title = ev.getTitle() || "", loc = ev.getLocation() || "", desc = ev.getDescription() || "";
-      const guests = ev.getGuestList().map(g => g.getEmail().toLowerCase()).filter(e => e !== me);
-      const mineToo = String(ev.getCreators()[0] || "").toLowerCase() === me;
-      const work = /zoom\.us|meet\.google\.com|teams\.microsoft/i.test(loc + " " + desc)
-        || /hair|makeup|\bmu\b|brid|wedding|trial|taffeta|salon|client|bootcamp|webinar/i.test(title)
-        || (mineToo && guests.length > 0);
-      const named = kids.filter(k => new RegExp("\\b" + k.name + "\\b", "i").test(title));
-      const allDay = ev.isAllDayEvent();
-      const s = allDay ? ev.getAllDayStartDate() : ev.getStartTime(), e = allDay ? ev.getAllDayEndDate() : ev.getEndTime();
-      return { title: title, start: s.toISOString(), end: e.toISOString(), allDay: allDay, location: loc.split("\n")[0].slice(0, 120),
-        kid: named.length === 1 ? named[0].id : "all", work: work };
+    const me = home.getId().toLowerCase();
+    const cals = [home].concat(CalendarApp.getAllCalendars().filter(c => c.getId() !== home.getId()
+      && c.getId() !== fhb && !/#holiday@|#contacts@|#weeknum@/i.test(c.getId())));
+    cals.forEach(cal => {
+      const calName = cal.getName() + " " + cal.getId();
+      const workCal = /taffeta/i.test(calName);
+      // A calendar named for one of the boys (Grayson's Gmail, "Julians class") belongs to him.
+      const calKid = kids.filter(k => new RegExp(k.name, "i").test(calName));
+      let events = [];
+      try { events = cal.getEvents(from, to); } catch (e) { console.warn("Couldn't read " + cal.getName() + ": " + e.message); }
+      events.forEach(ev => {
+        const title = ev.getTitle() || "", loc = ev.getLocation() || "", desc = ev.getDescription() || "";
+        const allDay = ev.isAllDayEvent();
+        const s = allDay ? ev.getAllDayStartDate() : ev.getStartTime(), e = allDay ? ev.getAllDayEndDate() : ev.getEndTime();
+        const key = title.trim().toLowerCase() + "|" + s.toISOString();
+        if (seen[key]) return;
+        seen[key] = true;
+        const guests = ev.getGuestList().map(g => g.getEmail().toLowerCase()).filter(e => e !== me);
+        const mineToo = cal === home && String(ev.getCreators()[0] || "").toLowerCase() === me;
+        const work = workCal || /zoom\.us|meet\.google\.com|teams\.microsoft/i.test(loc + " " + desc)
+          || /hair|makeup|\bmu\b|brid|wedding|trial|taffeta|salon|client|bootcamp|webinar/i.test(title)
+          || (mineToo && guests.length > 0);
+        const named = kids.filter(k => new RegExp("\\b" + k.name + "\\b", "i").test(title));
+        const kid = named.length === 1 ? named[0].id : calKid.length === 1 ? calKid[0].id : "all";
+        list.push({ title: title, start: s.toISOString(), end: e.toISOString(), allDay: allDay, location: loc.split("\n")[0].slice(0, 120),
+          kid: kid, work: work });
+      });
     });
-  } catch (e) { console.warn("Couldn't read Alexandra's calendar: " + e.message); }
+  } catch (e) { console.warn("Couldn't read Alexandra's calendars: " + e.message); }
   list.sort((a, b) => a.start.localeCompare(b.start));
-  list = list.slice(0, 150);
+  list = list.slice(0, 200);
   cache.put("familyCal", JSON.stringify(list), 600);
   return list;
 }
