@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Kids' Shared Expenses</title>
+<meta name="apple-mobile-web-app-title" content="Kids Expenses">
+<meta name="theme-color" content="#f6e9e4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Same look as Family Home Base: one centered column, a balance card on top, then the list. */
+:root{
+  --bg:#faf6f1; --surface:#ffffff; --ink:#2e2622; --muted:#7a6c63; --line:#ece2d8;
+  --accent:#7d6350; --accent-ink:#ffffff; --accent-soft:#f6e9e4;
+  --good:#2f7d5b; --good-soft:#e3f2ea; --warn:#a8670f; --warn-soft:#fbefd9; --bad:#b0353c; --bad-soft:#f9e1e2;
+  --display:"Bodoni Moda", "Didot", Georgia, serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
+  --accent:#dcbfa6; --accent-ink:#2a1f17; --accent-soft:#3a2f27;
+  --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224 }}
+:root[data-theme="dark"]{
+  --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
+  --accent:#dcbfa6; --accent-ink:#2a1f17; --accent-soft:#3a2f27;
+  --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224 }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);-webkit-text-size-adjust:100%}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px calc(40px + env(safe-area-inset-bottom))}
+h1{font:600 30px/1.1 var(--display);margin:6px 0 2px;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+button,input,select,textarea{font:inherit;color:inherit}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;font-weight:500;cursor:pointer;min-height:40px}
+a.btn{text-decoration:none;color:var(--ink);display:inline-flex;align-items:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:6px 12px;min-height:34px;font-size:14px}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+/* Balance */
+.balance .label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.balance .big{font:600 46px/1.05 var(--display);margin:4px 0 12px}
+.lines{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:12px;font-size:15px}
+.lines div{display:flex;justify-content:space-between;gap:12px}
+.lines span:first-child{color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 8px}
+/* Filters */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.month{font:500 italic 19px var(--display);margin:22px 2px 8px;color:var(--muted)}
+/* Items */
+.item{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.item .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.item .what{font-weight:600}
+.item .meta{color:var(--muted);font-size:14px;margin-top:2px}
+.item .amt{text-align:right;white-space:nowrap}
+.item .half{font-weight:600;font-size:18px}
+.item .full{color:var(--muted);font-size:13px}
+.item .note{font-size:14px;color:var(--muted);margin-top:6px;font-style:italic}
+.item .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;margin-right:4px}
+.tag.Owed{background:var(--warn-soft);color:var(--warn)}
+.tag.Paid{background:var(--good-soft);color:var(--good)}
+.tag.Declined{background:var(--bad-soft);color:var(--bad)}
+.item.Paid .half,.item.Declined .half{text-decoration:line-through;color:var(--muted);font-weight:500}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+/* Sheets (form + receipt viewer) */
+.veil{position:fixed;inset:0;background:rgba(20,14,10,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.veil.open{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:20px 18px calc(22px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.veil{align-items:center}.sheet{border-radius:22px}}
+.sheet h2{font:600 24px var(--display);margin:0 0 14px}
+.field{display:grid;gap:5px;margin-bottom:13px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 12px;width:100%;font-size:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.split{background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin:-4px 0 14px;font-size:15px}
+.split b{font-size:18px}
+.drop{border:1.5px dashed var(--line);border-radius:14px;padding:14px;text-align:center;color:var(--muted);cursor:pointer;background:var(--surface)}
+.drop img{max-width:100%;max-height:180px;border-radius:10px;display:block;margin:0 auto 8px}
+.foot{display:flex;gap:10px;justify-content:space-between;margin-top:18px;flex-wrap:wrap}
+.foot .right{display:flex;gap:10px;margin-left:auto}
+.err{color:var(--bad);font-size:14px;min-height:1.2em;margin-top:6px}
+.viewer img{width:100%;border-radius:12px;display:block}
+.viewer iframe{width:100%;height:70vh;border:0;border-radius:12px;background:#fff}
+/* Passcode */
+.gate{max-width:380px;margin:12vh auto 0;text-align:center}
+.gate input{text-align:center;letter-spacing:.2em;font-size:20px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+.toast.show{opacity:1}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<div class="veil" id="formVeil"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+  <h2 id="formTitle">Add an expense</h2>
+  <form id="form" autocomplete="off">
+    <div class="field"><label for="fWhat">What was it for?</label><input id="fWhat" placeholder="e.g. School sneakers" required></div>
+    <div class="two">
+      <div class="field"><label for="fDate">Date paid</label><input id="fDate" type="date" required></div>
+      <div class="field"><label for="fFull">Full amount you paid</label><input id="fFull" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="0.00" required></div>
+    </div>
+    <div class="split" id="fSplit">John's half: <b class="num">$0.00</b></div>
+    <div class="two">
+      <div class="field"><label for="fChild">For</label><select id="fChild"></select></div>
+      <div class="field"><label for="fCat">Type</label><select id="fCat"><option>Medical</option><option>School</option><option>Activities</option><option>Clothing</option><option>Other</option></select></div>
+    </div>
+    <div class="field" id="fStatusWrap"><label for="fStatus">Status</label><select id="fStatus"><option>Owed</option><option>Paid</option><option value="Declined">Declined (John said no)</option></select></div>
+    <div class="field"><label for="fNote">Note for John (optional)</label><input id="fNote" placeholder="e.g. Copay after insurance"></div>
+    <div class="field"><label>Receipt</label>
+      <div class="drop" id="fDrop" tabindex="0" role="button">Tap to add a photo or PDF of the receipt</div>
+      <input id="fFile" type="file" accept="image/*,application/pdf" class="hide">
+    </div>
+    <div class="err" id="fErr"></div>
+    <div class="foot">
+      <button type="button" class="btn danger" id="fDelete">Delete</button>
+      <div class="right"><button type="button" class="btn ghost" id="fCancel">Cancel</button><button type="submit" class="btn primary" id="fSave">Save</button></div>
+    </div>
+  </form>
+</div></div>
+
+<div class="veil" id="viewVeil"><div class="sheet viewer" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+  <h2 id="viewTitle">Receipt</h2>
+  <div id="viewBody"></div>
+  <div class="foot"><a class="btn ghost" id="viewOpen" target="_blank" rel="noopener">Open full size</a><button class="btn primary" id="viewClose">Close</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* Data lives in the KIDS 2026 Google Sheet ("Expense Log" tab) through a small Apps Script.
+   Paste the script's Web app URL here after deploying it (see README). */
+const API_URL = "";
+const PIN_KEY = "kx_pin";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => "$" + Number(n || 0).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const half = n => Math.round(Number(n || 0) * 50) / 100;
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const niceDate = s => s ? new Date(s + "T12:00").toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}) : "";
+const monthOf = s => s ? new Date(s + "T12:00").toLocaleDateString("en-US", {month:"long", year:"numeric"}) : "No date";
+
+let S = { role:null, items:[], oldBalance:null, kids:[], filter:"Owed", child:"All", editing:null, file:null };
+let pin = ""; try { pin = localStorage.getItem(PIN_KEY) || ""; } catch (e) {}
+
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2200); }
+
+/* ---------- talking to the Sheet ---------- */
+async function api(body){
+  if (window.DEMO) return window.DEMO(body);
+  if (!API_URL) throw new Error("This site isn't connected to the Sheet yet.");
+  const r = await fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({pin}, body))});
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error);
+  return j;
+}
+
+async function load(){
+  try {
+    const j = await api({action:"list"});
+    Object.assign(S, {role:j.role, items:j.items || [], oldBalance:j.oldBalance, kids:j.kids || []});
+    try { localStorage.setItem(PIN_KEY, pin); } catch (e) {}
+    render();
+  } catch (e) {
+    if (e.message === "bad_pin" || e.message === "locked" || !pin) return gate(e.message);
+    $("#app").innerHTML = `<div class="gate"><h1>Kids' Shared Expenses</h1><p class="sub">${esc(e.message)}</p><button class="btn" onclick="load()">Try again</button></div>`;
+  }
+}
+
+function gate(why){
+  const msg = why === "locked" ? "Too many tries. Please wait 15 minutes." : why === "bad_pin" ? "That passcode didn't match." : "Enter your passcode to see the list.";
+  $("#app").innerHTML = `<form class="gate" id="gate"><h1>Kids' Shared Expenses</h1><p class="sub">${msg}</p>
+    <div class="field"><input id="pin" type="password" inputmode="text" autocomplete="current-password" aria-label="Passcode" autofocus></div>
+    <button class="btn primary" style="width:100%">Open</button></form>`;
+  $("#gate").onsubmit = e => { e.preventDefault(); pin = $("#pin").value.trim(); load(); };
+}
+
+/* ---------- the page ---------- */
+function totals(){
+  const owed = S.items.filter(i => i.status === "Owed");
+  const year = String(new Date().getFullYear());
+  const open = owed.reduce((a, i) => a + i.half, 0);
+  return {
+    count: owed.length, open,
+    all: open + (S.oldBalance || 0),
+    paidYear: S.items.filter(i => i.status === "Paid" && (i.paidOn || i.date).slice(0,4) === year).reduce((a, i) => a + i.half, 0),
+    spentYear: S.items.filter(i => i.status !== "Declined" && i.date.slice(0,4) === year).reduce((a, i) => a + i.full, 0)
+  };
+}
+
+function render(){
+  const owner = S.role === "owner", t = totals(), year = new Date().getFullYear();
+  const list = S.items
+    .filter(i => S.filter === "All" || i.status === S.filter)
+    .filter(i => S.child === "All" || i.child === S.child || i.child === "Both")
+    .sort((a, b) => b.date.localeCompare(a.date));
+  let html = `<h1>Kids' Shared Expenses</h1>
+    <p class="sub">${owner ? "Everything is split 50/50. Enter the full amount and the half is worked out for you." : "Costs for the boys, split 50/50. Each item shows your half and its receipt."}</p>
+    <section class="card balance" aria-label="Balance">
+      <div class="label">John still owes</div>
+      <div class="big num">${fmt(t.all)}</div>
+      <div class="lines num">
+        <div><span>Open items (${t.count})</span><span>${fmt(t.open)}</span></div>
+        ${S.oldBalance ? `<div><span>Earlier balance from the KIDS 2026 sheet</span><span>${fmt(S.oldBalance)}</span></div>` : ""}
+        <div><span>Paid back in ${year}</span><span>${fmt(t.paidYear)}</span></div>
+        <div><span>Total spent on the boys in ${year}</span><span>${fmt(t.spentYear)}</span></div>
+      </div>
+    </section>
+    ${owner ? `<div class="actions"><button class="btn primary" id="addBtn">+ Add an expense</button></div>` : ""}
+    <div class="chips" role="group" aria-label="Show">${["Owed","Paid","Declined","All"].map(f => `<button class="chip" data-f="${f}" aria-pressed="${S.filter===f}">${f === "Declined" ? "John said no" : f}</button>`).join("")}</div>
+    ${S.kids.length > 1 ? `<div class="chips" role="group" aria-label="Child" style="margin-top:0">${["All"].concat(S.kids).map(k => `<button class="chip" data-k="${esc(k)}" aria-pressed="${S.child===k}">${k === "All" ? "Both boys" : esc(k)}</button>`).join("")}</div>` : ""}`;
+  if (!list.length) html += `<div class="empty">${S.filter === "Owed" ? "Nothing owed right now." : "Nothing here yet."}</div>`;
+  let month = "";
+  list.forEach(i => {
+    const m = monthOf(i.date);
+    if (m !== month) { month = m; html += `<div class="month">${m}</div>`; }
+    html += `<article class="item ${esc(i.status)}">
+      <div class="top">
+        <div><div class="what">${esc(i.what)}</div>
+          <div class="meta">${niceDate(i.date)} · ${esc(i.child || "Both")} · ${esc(i.category)}</div></div>
+        <div class="amt num"><div class="half">${fmt(i.half)}</div><div class="full">of ${fmt(i.full)}</div></div>
+      </div>
+      ${i.note ? `<div class="note">${esc(i.note)}</div>` : ""}
+      <div class="row">
+        <span class="tag ${esc(i.status)}">${i.status === "Declined" ? "John said no" : esc(i.status)}${i.status === "Paid" && i.paidOn ? " " + niceDate(i.paidOn).replace(/, \d{4}$/, "") : ""}</span>
+        <button class="btn small" data-receipt="${esc(i.id)}" ${i.hasReceipt ? "" : "disabled"}>${i.hasReceipt ? "View receipt" : "No receipt"}</button>
+        ${owner ? `<button class="btn small ghost" data-paid="${esc(i.id)}">${i.status === "Paid" ? "Mark owed" : "Mark paid"}</button>
+                   <button class="btn small ghost" data-edit="${esc(i.id)}">Edit</button>` : ""}
+      </div></article>`;
+  });
+  $("#app").innerHTML = html;
+  const add = $("#addBtn"); if (add) add.onclick = () => openForm(null);
+  document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.filter = b.dataset.f; render(); });
+  document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { S.child = b.dataset.k; render(); });
+  document.querySelectorAll("[data-receipt]").forEach(b => b.onclick = () => viewReceipt(b.dataset.receipt));
+  document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openForm(b.dataset.edit));
+  document.querySelectorAll("[data-paid]").forEach(b => b.onclick = () => togglePaid(b.dataset.paid, b));
+}
+
+/* ---------- add / edit ---------- */
+function openForm(id){
+  const it = id ? S.items.find(i => i.id === id) : null;
+  S.editing = it; S.file = null;
+  $("#formTitle").textContent = it ? "Edit expense" : "Add an expense";
+  $("#fChild").innerHTML = ["Both"].concat(S.kids).map(k => `<option value="${esc(k)}">${k === "Both" ? "Both boys" : esc(k)}</option>`).join("");
+  $("#fWhat").value = it ? it.what : "";
+  $("#fDate").value = it ? it.date : today();
+  $("#fFull").value = it ? it.full : "";
+  $("#fChild").value = it ? (it.child || "Both") : "Both";
+  $("#fCat").value = it ? it.category : "Medical";
+  $("#fStatus").value = it ? it.status : "Owed";
+  $("#fNote").value = it ? it.note : "";
+  $("#fStatusWrap").classList.toggle("hide", !it);
+  $("#fDelete").classList.toggle("hide", !it);
+  $("#fDrop").innerHTML = it && it.hasReceipt ? "Receipt saved. Tap to replace it." : "Tap to add a photo or PDF of the receipt";
+  $("#fErr").textContent = "";
+  $("#fFile").value = "";
+  updateSplit();
+  $("#formVeil").classList.add("open");
+  setTimeout(() => $("#fWhat").focus(), 50);
+}
+function closeForm(){ $("#formVeil").classList.remove("open"); }
+function updateSplit(){ $("#fSplit b").textContent = fmt(half($("#fFull").value)); }
+
+/* Photos are shrunk on the phone before upload so they send fast and stay readable. */
+function shrink(file){
+  return new Promise((ok, bad) => {
+    if (file.type === "application/pdf") {
+      const r = new FileReader(); r.onload = () => ok({mime:file.type, b64:String(r.result).split(",")[1], preview:null}); r.onerror = bad; r.readAsDataURL(file); return;
+    }
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const max = 1800, k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const data = c.toDataURL("image/jpeg", .82); URL.revokeObjectURL(url);
+      ok({mime:"image/jpeg", b64:data.split(",")[1], preview:data});
+    };
+    img.onerror = () => bad(new Error("That photo couldn't be read. Try a screenshot or a PDF."));
+    img.src = url;
+  });
+}
+
+$("#fFull").addEventListener("input", updateSplit);
+$("#fDrop").onclick = () => $("#fFile").click();
+$("#fDrop").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#fFile").click(); } };
+$("#fFile").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $("#fDrop").textContent = "Getting the receipt ready…";
+  try {
+    S.file = await shrink(f);
+    $("#fDrop").innerHTML = S.file.preview ? `<img src="${S.file.preview}" alt="Receipt preview">Tap to change` : `📄 ${esc(f.name)} · Tap to change`;
+  } catch (err) { S.file = null; $("#fDrop").textContent = err.message; }
+};
+$("#fCancel").onclick = closeForm;
+$("#formVeil").onclick = e => { if (e.target.id === "formVeil") closeForm(); };
+$("#form").onsubmit = async e => {
+  e.preventDefault();
+  const it = S.editing, save = $("#fSave");
+  const data = { what:$("#fWhat").value, date:$("#fDate").value, full:$("#fFull").value, child:$("#fChild").value, category:$("#fCat").value,
+                 status: it ? $("#fStatus").value : "Owed", note:$("#fNote").value, paidOn: it && it.status === "Paid" ? it.paidOn : "" };
+  save.disabled = true; save.textContent = S.file ? "Uploading…" : "Saving…"; $("#fErr").textContent = "";
+  try {
+    await api({action: it ? "update" : "add", id: it && it.id, data, receipt: S.file && {mime:S.file.mime, b64:S.file.b64}});
+    closeForm(); toast(it ? "Saved" : `Added. John's half is ${fmt(half(data.full))}`); await load();
+  } catch (err) { $("#fErr").textContent = err.message; }
+  finally { save.disabled = false; save.textContent = "Save"; }
+};
+$("#fDelete").onclick = async () => {
+  const it = S.editing; if (!it || !confirm(`Delete "${it.what}"? Its receipt is deleted too.`)) return;
+  try { await api({action:"delete", id:it.id}); closeForm(); toast("Deleted"); await load(); }
+  catch (err) { $("#fErr").textContent = err.message; }
+};
+
+async function togglePaid(id, btn){
+  const it = S.items.find(i => i.id === id); if (!it) return;
+  btn.disabled = true;
+  const paid = it.status !== "Paid";
+  try {
+    await api({action:"update", id, data: Object.assign({}, it, {status: paid ? "Paid" : "Owed", paidOn: paid ? today() : ""})});
+    toast(paid ? "Marked paid" : "Back to owed"); await load();
+  } catch (err) { btn.disabled = false; toast(err.message); }
+}
+
+/* ---------- receipts ---------- */
+let viewUrl = null;
+async function viewReceipt(id){
+  const it = S.items.find(i => i.id === id);
+  $("#viewTitle").textContent = it ? it.what : "Receipt";
+  $("#viewBody").innerHTML = `<div class="empty">Loading the receipt…</div>`;
+  $("#viewOpen").classList.add("hide");
+  $("#viewVeil").classList.add("open");
+  try {
+    const j = await api({action:"receipt", id});
+    const bytes = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0));
+    if (viewUrl) URL.revokeObjectURL(viewUrl);
+    viewUrl = URL.createObjectURL(new Blob([bytes], {type:j.mime}));
+    $("#viewBody").innerHTML = j.mime === "application/pdf" ? `<iframe src="${viewUrl}" title="Receipt"></iframe>` : `<img src="${viewUrl}" alt="Receipt for ${esc(it ? it.what : "")}">`;
+    $("#viewOpen").href = viewUrl; $("#viewOpen").classList.remove("hide");
+  } catch (err) { $("#viewBody").innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+}
+$("#viewClose").onclick = () => $("#viewVeil").classList.remove("open");
+$("#viewVeil").onclick = e => { if (e.target.id === "viewVeil") $("#viewVeil").classList.remove("open"); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeForm(); $("#viewVeil").classList.remove("open"); } });
+
+if (pin || window.DEMO) load(); else gate();
+</script>
+</body>
+</html>
