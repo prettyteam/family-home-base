@@ -77,6 +77,87 @@ function oldBalance_() {
   } catch (e) { return null; }
 }
 
+/**
+ * The items behind the older tab's "JOHN OWES ALEX" total: every cell its SUM formula adds up,
+ * with the label to its left, the child whose block it sits in and the column's category
+ * (MEDICAL, SCHOOL or ACTIVITIES). Read only. Amounts on that tab are already John's half.
+ */
+function oldItems_() {
+  if (PropertiesService.getScriptProperties().getProperty("INCLUDE_OLD_BALANCE") === "no") return [];
+  try {
+    const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName(OLD_TAB);
+    const f = sh.getRange(OLD_BALANCE_CELL).getFormula();
+    if (!f) return [];
+    const vals = sh.getDataRange().getValues(), col = c => c.split("").reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+    const cells = [], re = /\$?([A-Z]{1,2})\$?(\d+)(?::\$?([A-Z]{1,2})\$?(\d+))?/g;
+    let m;
+    while ((m = re.exec(f.replace(/^=\s*SUM/i, "")))) {
+      const c1 = col(m[1]), r1 = Number(m[2]), c2 = m[3] ? col(m[3]) : c1, r2 = m[4] ? Number(m[4]) : r1;
+      for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) cells.push([r, c]);
+    }
+    // Each child's block starts with his name in column A, right above the MEDICAL / SCHOOL / ACTIVITIES header row.
+    const a = vals.map(r => String(r[0]).trim()), blocks = [];
+    for (let i = 0; i < a.length - 1; i++) if (a[i] && a[i + 1].toUpperCase() === "MEDICAL") blocks.push({ row: i + 1, kid: a[i].charAt(0) + a[i].slice(1).toLowerCase() });
+    const seen = {}, list = [];
+    cells.forEach(([r, c]) => {
+      if (seen[r + ":" + c] || c < 2) return;
+      seen[r + ":" + c] = 1;
+      const amount = money_((vals[r - 1] || [])[c - 1]);
+      if (!(amount > 0)) return;
+      const b = blocks.filter(x => x.row < r).pop() || { row: 0, kid: "" };
+      const head = String(((vals[b.row] || [])[c - 2]) || "").trim();
+      list.push({ kid: b.kid, category: head ? head.charAt(0) + head.slice(1).toLowerCase() : "Other",
+        what: String((vals[r - 1] || [])[c - 2] || "").trim() || "Item", amount: amount });
+    });
+    return list;
+  } catch (e) { console.warn("Couldn't read the older tab: " + e.message); return []; }
+}
+
+/**
+ * The boys' upcoming appointments and activities for the next 6 weeks, from the calendars the Skylight shows:
+ * Alexandra's own Google calendar (only events that name one of the boys, look medical or school related,
+ * or that John is invited to) and the "Family Home Base" calendar (activities and games, never nanny shifts).
+ * Work events (weddings, clients, video calls) are always left out. Kept for 10 minutes.
+ */
+function upcoming_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get("upcoming");
+  if (hit) return JSON.parse(hit);
+  const kids = kids_(), from = new Date(); from.setHours(0, 0, 0, 0);
+  const to = new Date(from.getTime() + 42 * 864e5);
+  const kidRe = kids.length ? new RegExp("\\b(" + kids.join("|") + ")\\b", "i") : null;
+  const medical = /appoint|appt|\bdr\.?\b|doctor|dentist|ortho|therap|pediatric|chop|advocare|psych|clinic|physical|well visit|neck|chiro|urgent|x-?ray|eye exam|vaccin|amen/i;
+  const school = /no school|school|early dismissal|single session|conference|back to school|field trip/i;
+  const work = /zoom\.us|meet\.google\.com|teams\.microsoft|hair|makeup|\bmu\b|brid|wedding|trial|taffeta|salon|client|bootcamp|webinar|working$/i;
+  const viewer = String(PropertiesService.getScriptProperties().getProperty("VIEWER_EMAIL") || "jenks020@gmail.com").toLowerCase();
+  const list = [], seen = {};
+  const add = (ev, kind) => {
+    const title = ev.getTitle() || "", loc = (ev.getLocation() || "").split("\n")[0].slice(0, 120);
+    if (work.test(title + " " + loc + " " + (ev.getDescription() || ""))) return;
+    const allDay = ev.isAllDayEvent(), s = allDay ? ev.getAllDayStartDate() : ev.getStartTime(), e = allDay ? ev.getAllDayEndDate() : ev.getEndTime();
+    const key = title.toLowerCase() + "|" + s.getTime();
+    if (seen[key]) return;
+    seen[key] = 1;
+    const kidM = kidRe && title.match(kidRe);
+    const type = medical.test(title) ? "Medical" : school.test(title + " " + (ev.getDescription() || "")) ? "School" : kind;
+    list.push({ title: title, start: s.toISOString(), end: e.toISOString(), allDay: allDay, location: loc,
+      kid: kidM ? kidM[1].charAt(0).toUpperCase() + kidM[1].slice(1).toLowerCase() : "", type: type });
+  };
+  try {
+    CalendarApp.getDefaultCalendar().getEvents(from, to).forEach(ev => {
+      const title = ev.getTitle() || "", desc = ev.getDescription() || "";
+      const johnToo = ev.getGuestList().some(g => g.getEmail().toLowerCase() === viewer) || String(ev.getCreators()[0] || "").toLowerCase() === viewer;
+      if ((kidRe && kidRe.test(title)) || medical.test(title) || school.test(title + " " + desc) || johnToo) add(ev, "Activity");
+    });
+  } catch (e) { console.warn("Couldn't read Alexandra's calendar: " + e.message); }
+  try {
+    CalendarApp.getCalendarsByName("Family Home Base").forEach(cal => cal.getEvents(from, to).forEach(ev => add(ev, "Activity")));
+  } catch (e) { console.warn("Couldn't read the Family Home Base calendar: " + e.message); }
+  list.sort((x, y) => x.start.localeCompare(y.start));
+  const out = list.slice(0, 120);
+  cache.put("upcoming", JSON.stringify(out), 600);
+  return out;
+}
+
 function kids_() {
   const set = PropertiesService.getScriptProperties().getProperty("KIDS");
   return set ? set.split(",").map(s => s.trim()).filter(String) : [];
@@ -128,7 +209,7 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents || "{}");
     const role = role_(String(body.pin || ""));
     const act = body.action;
-    if (act === "list") return out_({ ok: true, role: role, items: items_(), oldBalance: oldBalance_(), kids: kids_() });
+    if (act === "list") return out_({ ok: true, role: role, items: items_(), oldBalance: oldBalance_(), oldItems: oldItems_(), kids: kids_(), upcoming: upcoming_() });
     if (act === "receipt") {
       const fileId = log_().getRange(findRow_(body.id), 11).getValue();
       if (!fileId) throw new Error("No receipt on this one yet.");

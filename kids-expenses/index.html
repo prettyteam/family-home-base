@@ -93,6 +93,33 @@ a.btn{text-decoration:none;color:var(--ink);display:inline-flex;align-items:cent
 .gate input{text-align:center;letter-spacing:.2em;font-size:20px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
 .toast.show{opacity:1}
+/* Tabs, category dropdowns, older items, calendar */
+.tabs{display:flex;gap:4px;background:var(--accent-soft);border-radius:999px;padding:4px;margin:0 0 16px}
+.tab{flex:1;border:0;background:transparent;border-radius:999px;padding:9px 12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+details.cat{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-top:12px;overflow:hidden}
+details.cat summary{list-style:none;display:flex;align-items:center;gap:10px;padding:15px 16px;cursor:pointer}
+details.cat summary::-webkit-details-marker{display:none}
+details.cat summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-left:4px;transition:transform .15s}
+details.cat[open] summary::after{transform:rotate(-135deg)}
+.cname{font:600 20px var(--display)}
+.ccount{color:var(--muted);font-size:14px}
+.csum{margin-left:auto;font-weight:600;font-size:17px}
+.cbody{padding:0 12px 12px}
+.cbody .item{border-color:var(--line);background:var(--bg)}
+.oldhead{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:12px 4px 4px}
+.old{display:flex;justify-content:space-between;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.old:last-child{border-bottom:0}
+.old .what{font-weight:500}
+.old .meta{color:var(--muted);font-size:13px}
+.old .half{font-weight:600;white-space:nowrap}
+.ev{display:flex;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.evtime{min-width:64px;color:var(--muted);font-size:14px;padding-top:2px}
+.ev .what{font-weight:600}
+.ev .meta{color:var(--muted);font-size:14px;margin-top:3px}
+.tag.t-Medical{background:var(--bad-soft);color:var(--bad)}
+.tag.t-School{background:var(--accent-soft);color:var(--accent)}
+.tag.t-Activity{background:var(--good-soft);color:var(--good)}
 .hide{display:none!important}
 </style>
 </head>
@@ -110,7 +137,7 @@ a.btn{text-decoration:none;color:var(--ink);display:inline-flex;align-items:cent
     <div class="split" id="fSplit">John's half: <b class="num">$0.00</b></div>
     <div class="two">
       <div class="field"><label for="fChild">For</label><select id="fChild"></select></div>
-      <div class="field"><label for="fCat">Type</label><select id="fCat"><option>Medical</option><option>School</option><option>Activities</option><option>Clothing</option><option>Other</option></select></div>
+      <div class="field"><label for="fCat">Type</label><select id="fCat"><option>Medical</option><option>School</option><option>Activities</option><option>Other</option></select></div>
     </div>
     <div class="field" id="fStatusWrap"><label for="fStatus">Status</label><select id="fStatus"><option>Owed</option><option>Paid</option><option value="Declined">Declined (John said no)</option></select></div>
     <div class="field"><label for="fNote">Note for John (optional)</label><input id="fNote" placeholder="e.g. Copay after insurance"></div>
@@ -147,7 +174,7 @@ const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getT
 const niceDate = s => s ? new Date(s + "T12:00").toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}) : "";
 const monthOf = s => s ? new Date(s + "T12:00").toLocaleDateString("en-US", {month:"long", year:"numeric"}) : "No date";
 
-let S = { role:null, items:[], oldBalance:null, kids:[], filter:"Owed", child:"All", editing:null, file:null };
+let S = { role:null, items:[], oldBalance:null, oldItems:[], upcoming:[], kids:[], filter:"Owed", child:"All", type:"All", tab:"money", open:{}, editing:null, file:null };
 let pin = ""; try { pin = localStorage.getItem(PIN_KEY) || ""; } catch (e) {}
 
 function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2200); }
@@ -165,7 +192,7 @@ async function api(body){
 async function load(){
   try {
     const j = await api({action:"list"});
-    Object.assign(S, {role:j.role, items:j.items || [], oldBalance:j.oldBalance, kids:j.kids || []});
+    Object.assign(S, {role:j.role, items:j.items || [], oldBalance:j.oldBalance, oldItems:j.oldItems || [], upcoming:j.upcoming || [], kids:j.kids || []});
     try { localStorage.setItem(PIN_KEY, pin); } catch (e) {}
     render();
   } catch (e) {
@@ -183,48 +210,28 @@ function gate(why){
 }
 
 /* ---------- the page ---------- */
+const CATS = ["Medical", "School", "Activities", "Other"];
+const catOf = c => CATS.indexOf(c) >= 0 ? c : "Other";
+const kidOk = k => S.child === "All" || !k || k === S.child || k === "Both";
+
 function totals(){
   const owed = S.items.filter(i => i.status === "Owed");
   const year = String(new Date().getFullYear());
   const open = owed.reduce((a, i) => a + i.half, 0);
+  const earlier = S.oldBalance != null ? S.oldBalance : S.oldItems.reduce((a, i) => a + i.amount, 0);
   return {
-    count: owed.length, open,
-    all: open + (S.oldBalance || 0),
+    count: owed.length, open, earlier,
+    all: open + (earlier || 0),
     paidYear: S.items.filter(i => i.status === "Paid" && (i.paidOn || i.date).slice(0,4) === year).reduce((a, i) => a + i.half, 0),
     spentYear: S.items.filter(i => i.status !== "Declined" && i.date.slice(0,4) === year).reduce((a, i) => a + i.full, 0)
   };
 }
 
-function render(){
-  const owner = S.role === "owner", t = totals(), year = new Date().getFullYear();
-  const list = S.items
-    .filter(i => S.filter === "All" || i.status === S.filter)
-    .filter(i => S.child === "All" || i.child === S.child || i.child === "Both")
-    .sort((a, b) => b.date.localeCompare(a.date));
-  let html = `<h1>Kids' Shared Expenses</h1>
-    <p class="sub">${owner ? "Everything is split 50/50. Enter the full amount and the half is worked out for you." : "Costs for the boys, split 50/50. Each item shows your half and its receipt."}</p>
-    <section class="card balance" aria-label="Balance">
-      <div class="label">John still owes</div>
-      <div class="big num">${fmt(t.all)}</div>
-      <div class="lines num">
-        <div><span>Open items (${t.count})</span><span>${fmt(t.open)}</span></div>
-        ${S.oldBalance ? `<div><span>Earlier balance from the KIDS 2026 sheet</span><span>${fmt(S.oldBalance)}</span></div>` : ""}
-        <div><span>Paid back in ${year}</span><span>${fmt(t.paidYear)}</span></div>
-        <div><span>Total spent on the boys in ${year}</span><span>${fmt(t.spentYear)}</span></div>
-      </div>
-    </section>
-    ${owner ? `<div class="actions"><button class="btn primary" id="addBtn">+ Add an expense</button></div>` : ""}
-    <div class="chips" role="group" aria-label="Show">${["Owed","Paid","Declined","All"].map(f => `<button class="chip" data-f="${f}" aria-pressed="${S.filter===f}">${f === "Declined" ? "John said no" : f}</button>`).join("")}</div>
-    ${S.kids.length > 1 ? `<div class="chips" role="group" aria-label="Child" style="margin-top:0">${["All"].concat(S.kids).map(k => `<button class="chip" data-k="${esc(k)}" aria-pressed="${S.child===k}">${k === "All" ? "Both boys" : esc(k)}</button>`).join("")}</div>` : ""}`;
-  if (!list.length) html += `<div class="empty">${S.filter === "Owed" ? "Nothing owed right now." : "Nothing here yet."}</div>`;
-  let month = "";
-  list.forEach(i => {
-    const m = monthOf(i.date);
-    if (m !== month) { month = m; html += `<div class="month">${m}</div>`; }
-    html += `<article class="item ${esc(i.status)}">
+function itemHtml(i, owner){
+  return `<article class="item ${esc(i.status)}">
       <div class="top">
         <div><div class="what">${esc(i.what)}</div>
-          <div class="meta">${niceDate(i.date)} · ${esc(i.child || "Both")} · ${esc(i.category)}</div></div>
+          <div class="meta">${niceDate(i.date)} · ${esc(i.child || "Both")}</div></div>
         <div class="amt num"><div class="half">${fmt(i.half)}</div><div class="full">of ${fmt(i.full)}</div></div>
       </div>
       ${i.note ? `<div class="note">${esc(i.note)}</div>` : ""}
@@ -234,11 +241,81 @@ function render(){
         ${owner ? `<button class="btn small ghost" data-paid="${esc(i.id)}">${i.status === "Paid" ? "Mark owed" : "Mark paid"}</button>
                    <button class="btn small ghost" data-edit="${esc(i.id)}">Edit</button>` : ""}
       </div></article>`;
+}
+
+function oldHtml(o){
+  return `<div class="old"><div><div class="what">${esc(o.what)}</div><div class="meta">${esc(o.kid || "Both")} · from the KIDS 2026 sheet</div></div><div class="half num">${fmt(o.amount)}</div></div>`;
+}
+
+function expensesHtml(owner){
+  const t = totals(), year = new Date().getFullYear();
+  const items = S.items.filter(i => (S.filter === "All" || i.status === S.filter) && kidOk(i.child)).sort((a, b) => b.date.localeCompare(a.date));
+  const olds = (S.filter === "Owed" || S.filter === "All") ? S.oldItems.filter(o => kidOk(o.kid)) : [];
+  let html = `<section class="card balance" aria-label="Balance">
+      <div class="label">John still owes</div>
+      <div class="big num">${fmt(t.all)}</div>
+      <div class="lines num">
+        ${t.earlier ? `<div><span>From the KIDS 2026 sheet (${S.oldItems.length || "earlier"} items)</span><span>${fmt(t.earlier)}</span></div>` : ""}
+        <div><span>New items added here (${t.count})</span><span>${fmt(t.open)}</span></div>
+        <div><span>Paid back in ${year}</span><span>${fmt(t.paidYear)}</span></div>
+        <div><span>Total spent on the boys in ${year}</span><span>${fmt(t.spentYear)}</span></div>
+      </div>
+    </section>
+    ${owner ? `<div class="actions"><button class="btn primary" id="addBtn">+ Add an expense</button></div>` : ""}
+    <div class="chips" role="group" aria-label="Show">${["Owed","Paid","Declined","All"].map(f => `<button class="chip" data-f="${f}" aria-pressed="${S.filter===f}">${f === "Declined" ? "John said no" : f}</button>`).join("")}</div>
+    ${kidChips()}`;
+  if (!items.length && !olds.length) return html + `<div class="empty">${S.filter === "Owed" ? "Nothing owed right now." : "Nothing here yet."}</div>`;
+  CATS.forEach(c => {
+    const mine = items.filter(i => catOf(i.category) === c), old = olds.filter(o => catOf(o.category) === c);
+    if (!mine.length && !old.length) return;
+    const sum = mine.reduce((a, i) => a + i.half, 0) + old.reduce((a, o) => a + o.amount, 0), n = mine.length + old.length;
+    html += `<details class="cat" data-cat="${c}" ${S.open[c] ? "open" : ""}>
+      <summary><span class="cname">${c}</span><span class="ccount">${n} item${n === 1 ? "" : "s"}</span><span class="csum num">${fmt(sum)}</span></summary>
+      <div class="cbody">${mine.map(i => itemHtml(i, owner)).join("")}
+        ${old.length ? `<div class="oldhead">From the KIDS 2026 sheet</div>${old.map(oldHtml).join("")}` : ""}</div>
+    </details>`;
   });
+  return html;
+}
+
+function kidChips(){
+  return S.kids.length > 1 ? `<div class="chips" role="group" aria-label="Child" style="margin-top:0">${["All"].concat(S.kids).map(k => `<button class="chip" data-k="${esc(k)}" aria-pressed="${S.child===k}">${k === "All" ? "Both boys" : esc(k)}</button>`).join("")}</div>` : "";
+}
+
+function upcomingHtml(){
+  const list = S.upcoming.filter(e => (S.type === "All" || e.type === S.type) && kidOk(e.kid));
+  let html = `<p class="sub" style="margin-top:4px">The boys' appointments, school days off and activities for the next 6 weeks, from the family calendar.</p>
+    <div class="chips" role="group" aria-label="Type">${["All","Medical","School","Activity"].map(f => `<button class="chip" data-t="${f}" aria-pressed="${S.type===f}">${f === "Activity" ? "Activities" : f}</button>`).join("")}</div>
+    ${kidChips()}`;
+  if (!list.length) return html + `<div class="empty">Nothing coming up.</div>`;
+  let day = "";
+  list.forEach(e => {
+    const s = new Date(e.start), d = e.allDay ? new Date(e.start.slice(0,10) + "T12:00") : s;
+    const label = d.toLocaleDateString("en-US", {weekday:"long", month:"short", day:"numeric"});
+    if (label !== day) { day = label; html += `<div class="month">${label}</div>`; }
+    const time = e.allDay ? "All day" : s.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"});
+    html += `<div class="ev"><div class="evtime num">${time}</div><div class="evmain"><div class="what">${esc(e.title)}</div>
+      <div class="meta"><span class="tag t-${esc(e.type)}">${esc(e.type)}</span> ${[e.kid, e.location].filter(Boolean).map(esc).join(" · ")}</div></div></div>`;
+  });
+  return html;
+}
+
+function render(){
+  const owner = S.role === "owner";
+  let html = `<h1>Kids' Shared Expenses</h1>
+    <p class="sub">${owner ? "Everything is split 50/50. Enter the full amount and the half is worked out for you." : "Costs for the boys, split 50/50. Each item shows your half and its receipt."}</p>
+    <div class="tabs" role="tablist">
+      <button role="tab" class="tab" data-tab="money" aria-selected="${S.tab==="money"}">Expenses</button>
+      <button role="tab" class="tab" data-tab="cal" aria-selected="${S.tab==="cal"}">Coming up</button>
+    </div>`;
+  html += S.tab === "cal" ? upcomingHtml() : expensesHtml(owner);
   $("#app").innerHTML = html;
   const add = $("#addBtn"); if (add) add.onclick = () => openForm(null);
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
   document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.filter = b.dataset.f; render(); });
+  document.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { S.type = b.dataset.t; render(); });
   document.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { S.child = b.dataset.k; render(); });
+  document.querySelectorAll("details.cat").forEach(d => d.ontoggle = () => { S.open[d.dataset.cat] = d.open; });
   document.querySelectorAll("[data-receipt]").forEach(b => b.onclick = () => viewReceipt(b.dataset.receipt));
   document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openForm(b.dataset.edit));
   document.querySelectorAll("[data-paid]").forEach(b => b.onclick = () => togglePaid(b.dataset.paid, b));

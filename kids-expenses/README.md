@@ -6,6 +6,8 @@ A simple page for the boys' costs that are split 50/50. Alexandra enters the ful
 
 - Everything is saved in a new **Expense Log** tab in the **KIDS 2026** Google Sheet (the one John can already view). The older tabs are only read, never changed.
 - The "JOHN OWES ALEX" total on the **Owed Expenses (Split Amt)** tab is shown as its own line, "Earlier balance", and added to the total. To leave it out, add the Script Property `INCLUDE_OLD_BALANCE` set to `no`.
+- The Expenses tab groups everything into Medical, School, Activities and Other dropdowns, like the older tab. Each one lists the items the older tab still counts as owed (the cells its "JOHN OWES ALEX" formula adds up) plus anything new added here.
+- The **Coming up** tab shows the next 6 weeks of the boys' appointments, school days off and activities. It reads Alexandra's Google calendar (the one the Skylight uses) and the Family Home Base calendar. From her own calendar it only takes events that name one of the boys, look medical or school related, or that John is invited to. Work events (weddings, clients, video calls) and nanny shifts are always left out.
 - Receipts go to a private **Kids Expense Receipts** folder in Alexandra's Drive. They're shown only through the page, so nobody gets a link to the files themselves.
 - This repository holds only the code: no names, amounts or receipts.
 
@@ -25,5 +27,8 @@ The passcodes are kept in the script's settings and written to a separate privat
 5. Send the **Web app URL** to Claude, who puts it in `index.html` as `API_URL`.
 
 ## Updating the backend later
+
+If a new version reads something new (the calendar, for example), run any function once in the editor first, such as **setup**, so Google can ask for the extra permission.
+
 
 Paste the new code, then **Deploy > Manage deployments**, edit the deployment and pick **New version**, so the URL stays the same.
