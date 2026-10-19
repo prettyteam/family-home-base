@@ -67,6 +67,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(-
 .hhi span:first-child{font-size:20px;color:var(--muted)}
 .hhi .hname{font-size:40px;color:var(--ink)}
 .hdate{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.hquote{margin:6px 0 0;max-width:30ch;text-align:center;font-family:var(--display);font-style:italic;font-size:18px;line-height:1.35;color:var(--accent);text-wrap:balance}
 .mhead{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);margin-top:10px}
 .mhead::before,.mhead::after{content:"";width:28px;height:1px;background:var(--ink)}
 .home .cgrid{display:grid;grid-template-columns:repeat(2,minmax(124px,150px));gap:8px;justify-content:center}
@@ -619,16 +620,43 @@ function fitSched(){
 }
 
 /* ---------- a child's own view ---------- */
-let kidTab = "work";
+let kidTab = "start";
 function dayAgenda(d){
   const y = ymd(d);
   return S.activities.filter(a => Number(a.day) === d.getDay()).map(a => ({name:a.name, start:a.start, end:a.end, location:a.location, kid:a.kid}))
     .concat(gamesOn(y), calOn(y), eventsOn(y).map(e => ({name:e.title, start:e.start, end:e.end, location:e.location, kid:e.kid})))
     .sort((a,b)=>(a.start||"").localeCompare(b.start||""));
 }
+/* Daily quote on the boys' homepages: brothers, respect and Mom (one a day, the same for both) */
+const KID_QUOTES = ["Brothers are teammates for life. Play for each other.", "Respect sounds like kind words, even when you're mad.", "Mom works hard for you. A thank-you today goes a long way.", "Your brother is the only person who grows up right next to you. Treat him that way.", "Strong people lift each other up, starting at home.", "Listen first, then talk. It's how respect starts.", "A good brother has your back, even when no one is watching.", "Help Mom without being asked. That's what grown-up looks like.", "You don't have to agree to be kind.", "Win together, lose together, always stick together.", "The way you treat your family is who you really are.", "Say sorry when you're wrong. Say thank you when you're helped.", "Brothers can argue and still be best friends by dinner.", "Mom's rules come from love. Follow them with respect.", "Be the brother you'd want to have.", "A calm voice is stronger than a loud one.", "Teamwork at home makes everything easier for everyone.", "Look out for your brother today. He'll look out for you.", "Respect is giving others the same kindness you want.", "Little things count: a clean room, a kind word, a helping hand.", "Family first. Always.", "Your words matter. Use them to build each other up.", "Make Mom proud today with how you treat others.", "A real leader is kind to the people closest to him.", "Cheer for your brother's wins like they're your own.", "Patience with each other is a superpower.", "When one of us needs help, all of us help.", "Be honest, be kind, be there.", "Home is where we treat each other best.", "Brothers today, best friends forever.", "Thank Mom for something specific today. She'll remember it."];
+const kidQuote = d => { const n = Math.floor((d - new Date(d.getFullYear(),0,0)) / 864e5); return KID_QUOTES[n % KID_QUOTES.length]; };
+
+/* A boy's homepage: hello, the date, then four squares (same look as the family homepage) */
+function kidHome(me){
+  const d = new Date(), today = ymd(d);
+  const open = S.assignments.filter(a => !a.done);
+  const missing = open.filter(a => /^MISSING/i.test(a.title || "") || (a.due && a.due < today)).length;
+  const dueSoon = open.filter(a => a.due && a.due >= today && a.due <= ymd(addDays(d,2))).length;
+  const list = tasksFor(me.id, d), doneN = list.filter(t => choreDone(me.id, d, t.key)).length;
+  const nowM = d.getHours()*60 + d.getMinutes(), next = dayAgenda(d).find(a => !a.start || toMin(a.start) >= nowM);
+  const sq = (k, l, sub) => `<button type="button" data-ktab="${k}"><span>${esc(l)}</span>${sub?`<small>${esc(sub)}</small>`:""}</button>`;
+  return `<section class="home">
+    <div class="hhi"><span>Hello,</span><span class="hname">${esc(me.name || "")}</span></div>
+    <p class="hdate">${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <p class="hquote">“${esc(kidQuote(d))}”</p>
+    <div class="mhead">Menu</div>
+    <div class="cgrid">
+      ${sq("work","My assignments", open.length ? open.length+" to do"+(missing?" · "+missing+" missing":dueSoon?" · "+dueSoon+" due soon":"") : "All done")}
+      ${sq("home","Home tasks", list.length ? doneN+" of "+list.length+" done today" : "")}
+      ${sq("cal","My calendar", next ? (next.start ? fmtT(next.start)+" · " : "")+next.name : "Nothing else today")}
+      <a href="https://classroom.google.com" target="_blank" rel="noopener"><span>Google Classroom</span><small>Turn in work</small></a>
+    </div>
+  </section>`;
+}
 function renderKid(){
   const me = kidById(kidMode) || {name:"", id:kidMode};
-  const tabs = `<nav class="tabs" role="tablist" aria-label="Sections" style="margin-top:0"><button role="tab" data-ktab="work" aria-selected="${kidTab==="work"}">My assignments</button><button role="tab" data-ktab="home" aria-selected="${kidTab==="home"}">Home tasks</button><button role="tab" data-ktab="cal" aria-selected="${kidTab==="cal"}">My calendar</button></nav>`;
+  const tabs = `<nav class="tabs" role="tablist" aria-label="Sections" style="margin-top:0"><button role="tab" data-ktab="start" aria-selected="${kidTab==="start"}">Home</button><button role="tab" data-ktab="work" aria-selected="${kidTab==="work"}">My assignments</button><button role="tab" data-ktab="home" aria-selected="${kidTab==="home"}">Home tasks</button><button role="tab" data-ktab="cal" aria-selected="${kidTab==="cal"}">My calendar</button></nav>`;
+  if(kidTab === "start") return tabs + kidHome(me);
   if(kidTab === "home"){
     const d = new Date(), list = tasksFor(me.id, d), n = list.filter(t=>choreDone(me.id,d,t.key)).length;
     const tk = trashKid(d), next = trashKid(addDays(d,7));
