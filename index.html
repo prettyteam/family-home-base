@@ -66,6 +66,11 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(-
 .hhi{display:flex;flex-direction:column;align-items:center;font-family:var(--display);line-height:1.05}
 .hhi span:first-child{font-size:20px;color:var(--muted)}
 .hhi .hname{font-size:40px;color:var(--ink)}
+/* Refresh bar along the bottom (like the salon apps): when the app last pulled the latest, and a Refresh button */
+.rbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.rbar small{font-size:13px;color:var(--muted)}
+.rbar button{border:0;background:none;color:var(--ink);font:inherit;font-size:11px;letter-spacing:.18em;text-transform:uppercase;padding:6px 2px;cursor:pointer}
+body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bottom))}
 .hdate{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
 .hquote{margin:6px 0 0;max-width:30ch;text-align:center;font-family:var(--display);font-style:italic;font-size:18px;line-height:1.35;color:var(--accent);text-wrap:balance}
 .mhead{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);margin-top:10px}
@@ -174,6 +179,7 @@ body{top:0!important}
 </div>
 
 <dialog id="dlg"><form id="dlgForm" method="dialog"></form></dialog>
+<div class="rbar" id="rbar" hidden><small id="rbarAt"></small><button type="button" id="rbarBtn">Refresh</button></div>
 
 <script>
 (function(){
@@ -224,6 +230,7 @@ async function refresh(){
   S.games = j.data.games || [];
   S.cal = j.data.cal || [];
   ["settings"].concat(COLLS).forEach(c => S.loaded[c] = true);
+  S.loadedAt = new Date();
   return j.role;
 }
 function applyLocal(coll, id, data, mode){
@@ -560,6 +567,9 @@ function setupForm(){
 function render(){
   const t = new Date();
   $("#signOut").hidden = !db;
+  $("#rbar").hidden = !db;
+  if(db && S.loadedAt){ const a = S.loadedAt, today = ymd(a) === ymd(new Date());
+    $("#rbarAt").textContent = "Updated " + (today ? "" : a.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + ", ") + a.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}); }
   $("#todayLine").textContent = DAYS_LONG[t.getDay()] + ", " + t.toLocaleDateString(undefined,{month:"long",day:"numeric"}) + (kids().length && !kidMode ? " · " + kids().map(k=>k.name).join(", ") : "");
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab===tab)));
   const m = $("#main");
@@ -757,6 +767,9 @@ async function signIn(p, remember){
     renderLogin(/bad_pin|locked/.test(e.message) ? (e.message==="locked" ? "Too many wrong tries. Wait 15 minutes and try again." : "That passcode didn't work.") : "Couldn't reach the family schedule. Check your connection.");
   }
 }
+$("#rbarBtn").onclick = () => { const b = $("#rbarBtn"); if(!db || b.disabled) return; b.disabled = true; b.textContent = "Refreshing…";
+  refresh().then(render).catch(() => toast("Couldn't refresh. Check your connection and try again.")).finally(() => { b.disabled = false; b.textContent = "Refresh"; });
+};
 $("#signOut").onclick = () => { try { localStorage.removeItem("fhb-pin"); } catch(e){} db = null; pin = ""; kidMode = ""; delete document.documentElement.dataset.kid; $("h1").textContent = "Family Home Base"; render(); };
 setInterval(() => { if(db && document.visibilityState === "visible" && !$("#dlg").open) refresh().then(render).catch(()=>{}); }, 30000);
 document.addEventListener("visibilitychange", () => { if(db && document.visibilityState === "visible") refresh().then(render).catch(()=>{}); });
