@@ -258,7 +258,11 @@ function payFor(list, wk){
   if(st.overtime === "yes" && worked > 40){ pay = 40*rate + (worked-40)*rate*1.5; how += ", 1.5× after 40 hrs"; }
   return { worked, pay, how };
 }
-function todayShift(){ const t = ymd(new Date()); return S.shifts.find(s => s.date === t); }
+/* Today's shifts in start order. Days can have more than one (morning wake-up plus afternoon), so clock in/out
+   works on the shift she's on, else the next one not started, else the last one finished. */
+const todayShifts = () => { const t = ymd(new Date()); return S.shifts.filter(s => s.date === t).sort((a,b)=>(a.start||"").localeCompare(b.start||"")); };
+function todayShift(){ const l = todayShifts();
+  return l.find(s => s.inAt && !s.outAt) || l.find(s => !s.inAt) || l[l.length-1]; }
 
 /* ---------- daily home tasks ---------- */
 const HOME_TASKS = [
@@ -323,14 +327,14 @@ function renderClock(){
   const s = todayShift();
   let state, btn = "";
   if(s && s.inAt && !s.outAt){ state = `On the clock since <span class="num">${fmtT(s.inAt)}</span>`; btn = `<button class="btn primary" id="clockOut">Clock out</button>`; }
-  else if(s && s.outAt){ state = `Clocked out at <span class="num">${fmtT(s.outAt)}</span> · ${fmtH(workedHours(s))} hrs today`; }
+  else if(s && s.outAt){ state = `Clocked out at <span class="num">${fmtT(s.outAt)}</span> · ${fmtH(todayShifts().reduce((t,x)=>t+workedHours(x),0))} hrs today`; btn = `<button class="btn" id="clockIn">Clock in again</button>`; }
   else if(s){ state = `Scheduled <span class="num">${fmtT(s.start)} – ${fmtT(s.end)}</span>`; btn = `<button class="btn primary" id="clockIn">Clock in</button>`; }
   else { state = "No shift scheduled today"; btn = `<button class="btn" id="clockIn">Clock in anyway</button>`; }
   return `<div class="clock"><div><h3>${esc(nannyName())} · today</h3><div class="big">${state}</div></div>${readOnly?"":btn}</div>`;
 }
 function bindClock(){
   const ci = $("#clockIn"), co = $("#clockOut");
-  if(ci) ci.onclick = () => { const s = todayShift(); if(s) patch("shifts", s._id, {inAt: nowHM()}); else save("shifts", null, {date: ymd(new Date()), start:"", end:"", inAt: nowHM(), outAt:"", note:"Unscheduled"}); };
+  if(ci) ci.onclick = () => { const s = todayShift(); if(s && !s.inAt) patch("shifts", s._id, {inAt: nowHM()}); else save("shifts", null, {date: ymd(new Date()), start:"", end:"", inAt: nowHM(), outAt:"", note:"Unscheduled"}); };
   if(co) co.onclick = () => { const s = todayShift(); if(s) patch("shifts", s._id, {outAt: nowHM()}); };
 }
 
