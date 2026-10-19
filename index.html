@@ -61,6 +61,18 @@ h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute
 nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin-top:18px;border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto}
 nav.tabs button{border:0;background:none;font:inherit;font-weight:500;color:var(--muted);padding:10px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+/* Home: greeting, MENU between two fine lines, then plain squares two across (matches the salon apps' homepages) */
+.home{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0 8px}
+.hhi{display:flex;flex-direction:column;align-items:center;font-family:var(--display);line-height:1.05}
+.hhi span:first-child{font-size:20px;color:var(--muted)}
+.hhi .hname{font-size:40px;color:var(--ink)}
+.hdate{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.mhead{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);margin-top:10px}
+.mhead::before,.mhead::after{content:"";width:28px;height:1px;background:var(--ink)}
+.home .cgrid{display:grid;grid-template-columns:repeat(2,minmax(124px,150px));gap:8px;justify-content:center}
+.home .cgrid>button,.home .cgrid>a{background:var(--surface);color:var(--ink);border:1px solid var(--ink);outline:1px solid var(--ink);outline-offset:-6px;border-radius:0;aspect-ratio:1/1;font-family:var(--display);font-size:16px;line-height:1.2;padding:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;text-decoration:none}
+.home .cgrid small{font-family:var(--body);font-size:11px;color:var(--muted);letter-spacing:.02em}
+.schedframe{width:100%;min-height:600px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 main{padding-top:20px;display:grid;gap:24px}
 .banner{background:var(--accent-soft);border-radius:10px;padding:10px 14px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
@@ -134,7 +146,7 @@ body{top:0!important}
       <span class="meta">Viewing as</span>
       <div class="seg" role="group" aria-label="Viewing as">
         <button id="asMom" aria-pressed="true">Alexandra</button>
-        <button id="asNanny" aria-pressed="false">Rafa</button>
+        <button id="asNanny" aria-pressed="false">Au Pair</button>
       </div>
     </div>
     <div class="row" style="gap:6px">
@@ -145,8 +157,10 @@ body{top:0!important}
   <div id="gtEl"></div>
 
   <nav class="tabs" role="tablist" aria-label="Sections">
-    <button role="tab" data-tab="today" aria-selected="true">Today</button>
-    <button role="tab" data-tab="hours" aria-selected="false">Rafa's hours</button>
+    <button role="tab" data-tab="home" aria-selected="true">Home</button>
+    <button role="tab" data-tab="today" aria-selected="false">Today</button>
+    <button role="tab" data-tab="hours" aria-selected="false">Au Pair hours</button>
+    <button role="tab" data-tab="schedule" aria-selected="false">Schedule</button>
     <button role="tab" data-tab="school" aria-selected="false">School</button>
     <button role="tab" data-tab="activities" aria-selected="false">Activities</button>
     <button role="tab" data-tab="todos" aria-selected="false">To-dos</button>
@@ -154,7 +168,7 @@ body{top:0!important}
   </nav>
 
   <main id="main">
-    <div class="panel"><p class="empty">Opening your home base… Once it connects, Rafa's schedule, the kids' schoolwork and the week's activities show up here.</p></div>
+    <div class="panel"><p class="empty">Opening your home base… Once it connects, the au pair's schedule, the kids' schoolwork and the week's activities show up here.</p></div>
   </main>
 </div>
 
@@ -184,9 +198,8 @@ const dueLabel = s => { if(!s) return ["No due date",""]; const t = parseYmd(ymd
 const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], chores:[], games:[], cal:[], loaded:{} };
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
-let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "today", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
-try { const t = localStorage.getItem("fhb-tab"); if(t) tab = t; } catch(e){}
-if(/^#(today|hours|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
+let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "home", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
+if(/^#(home|today|hours|schedule|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
 
 const kids = () => (S.settings && S.settings.kids) || [];
 const kidById = id => kids().find(k => k.id === id);
@@ -204,6 +217,8 @@ async function api(body){
 async function refresh(){
   const j = await api({action:"list"});
   S.settings = j.data.settings && j.data.settings.find(x=>x._id==="main") || null;
+  /* The au pair's schedule pages live in the private Sheet (settings rows "schedule-en" and "schedule-pt"). */
+  S.sched = {}; (j.data.settings || []).forEach(x => { const m = /^schedule-(en|pt)$/.exec(x._id); if(m && x.html) S.sched[m[1]] = x; });
   COLLS.forEach(c => S[c] = j.data[c] || []);
   S.games = j.data.games || [];
   S.cal = j.data.cal || [];
@@ -291,7 +306,7 @@ function homeTasksList(kid, d){
   return `<ul class="list">${list.map(t => { const on = choreDone(kid,d,t.key);
     return `<li class="${on?"done":""}"><input type="checkbox" class="check" data-chore="${choreId(kid,d,t.key)}" ${on?"checked":""} ${readOnly?"disabled":""} aria-label="${esc(t.label)}"><div class="grow"><div class="t">${esc(t.label)}</div></div>${on?`<span class="chip good">Done</span>`:""}</li>`; }).join("")}</ul>`;
 }
-/* Rafa's daily checklist, from the Daily Duties in Family Facts. school:true = school days only. */
+/* The au pair's daily checklist, from the Daily Duties in Family Facts. school:true = school days only. */
 const NANNY_TASKS = [
   {key:"n-breakfast", label:"6:00 wake-up: breakfast, Grayson's morning meds, teeth brushed", school:true},
   {key:"n-laundry", label:"Laundry: put the boys' shirts on hangers and leave them over the staircase railing for them to hang up"},
@@ -557,9 +572,46 @@ function render(){
   else if(S.settings.example) top = `<div class="banner"><span>You're looking at example entries so you can see how it works. Tap Edit on anything to change it, or open Family setup to add your real details.</span>${isMom()&&!readOnly?`<button class="btn small" id="setupBtn">Family setup</button>`:""}</div>`;
   else if(isMom() && !readOnly) top = `<div class="row" style="justify-content:flex-end"><button class="btn ghost small" id="setupBtn">Family setup</button></div>`;
 
+  if(tab === "home"){ m.innerHTML = top + renderHome(); bind(); return; }
+  if(tab === "schedule"){ m.innerHTML = top + renderSchedule(); bind(); fitSched(); return; }
   const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes}[tab]();
   m.innerHTML = top + body;
   bind();
+}
+
+/* ---------- Home: a greeting, then the menu squares (like the salon apps' homepages) ---------- */
+const HOME_TILES = [["today","Today"],["hours","Au Pair Hours"],["schedule","Schedule"],["school","School"],["activities","Activities"],["todos","To-dos"],["notes","Family Facts"]];
+function renderHome(){
+  const t = new Date(), s = todayShift();
+  const openTodos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom")).length;
+  const soon = ymd(addDays(t,3)), due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).length;
+  const sub = {today: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "", hours: "", schedule: "Weekly plan & daily routine",
+    school: due ? due+" due soon" : "", activities: "", todos: openTodos ? openTodos+" open" : "All caught up", notes: ""};
+  const hello = isMom() ? "Alexandra" : nannyName();
+  const tiles = HOME_TILES.map(([k,l]) => `<button type="button" data-go="${k}"><span>${esc(l)}</span>${sub[k]?`<small>${esc(sub[k])}</small>`:""}</button>`)
+    .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
+  return `<section class="home">
+    <div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
+    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="mhead">Menu</div>
+    <div class="cgrid">${tiles.join("")}</div>
+  </section>`;
+}
+
+/* ---------- Schedule: the au pair's weekly schedule and daily routine, in English or Portuguese ---------- */
+const SCHED_CSS = {"en": ":root{ --brown:#423327; --gold:#b4925b; --ivory:#f2f1ec; --bronze:#886d4e; --ink:#2b241d; --muted:#6b5f53; --line:#d9d2c5; --flex:#efe6d6; --off:#f6f5f1; --page:#ffffff; } @page{ size: letter; margin: 0.5in; } *{ box-sizing:border-box; } body{ margin:0; background:var(--page); color:var(--ink); font:9pt/1.35 Inter, system-ui, sans-serif; } .page{ max-width:7.5in; margin:0 auto; padding:16px; } .page + .page{ break-before:page; } header{ border-bottom:2px solid var(--brown); padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; } h1{ font-family:\"Cormorant Garamond\", Georgia, serif; font-weight:600; font-size:28pt; line-height:1; margin:0; color:var(--brown); } .sub{ color:var(--muted); font-size:9.5pt; } h2{ font-family:\"Cormorant Garamond\", Georgia, serif; font-weight:600; font-size:15pt; color:var(--brown); margin:10px 0 5px; } h3{ font-size:9pt; text-transform:uppercase; letter-spacing:.08em; color:var(--bronze); margin:10px 0 4px; } p{ margin:4px 0; } .rules{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:6px; } .rule{ background:var(--ivory); border-radius:6px; padding:5px 10px; } .rule b{ display:block; font-size:14pt; color:var(--brown); font-family:\"Cormorant Garamond\", Georgia, serif; } .rule span{ font-size:8.5pt; color:var(--muted); } table{ width:100%; border-collapse:collapse; font-size:9pt; } th,td{ border:1px solid var(--line); padding:3px 6px; vertical-align:top; text-align:left; } th{ background:var(--brown); color:#fff; font-weight:600; font-size:8.5pt; } td.day{ font-weight:600; white-space:nowrap; width:62px; } td.hrs{ text-align:right; white-space:nowrap; width:44px; font-weight:600; } .flex{ background:var(--flex); } .off{ background:var(--off); color:var(--muted); font-style:italic; } .tag{ display:inline-block; font-size:7.5pt; font-weight:600; padding:1px 6px; border-radius:10px; background:var(--gold); color:#fff; margin-left:4px; vertical-align:1px; } tfoot td{ font-weight:600; background:var(--ivory); } .two{ display:grid; grid-template-columns:1fr 1fr; gap:14px; } ul{ margin:4px 0; padding-left:18px; } li{ margin:2px 0; } .box{ border:1px solid var(--line); border-radius:6px; padding:8px 12px; } .callout{ border-left:3px solid var(--gold); background:var(--ivory); padding:8px 12px; border-radius:0 6px 6px 0; margin:8px 0; } .check li{ list-style:none; margin-left:-18px; } .check li::before{ content:\"☐ \"; color:var(--bronze); } .time{ display:inline-block; min-width:78px; font-weight:600; color:var(--brown); } .page:last-of-type h2{ margin:7px 0 3px; } .page:last-of-type li{ margin:1px 0; } .sig{ display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-top:10px; } .connect li{ margin:8px 0; font-size:10.5pt; } .sig div{ border-top:1px solid var(--ink); padding-top:4px; font-size:8.5pt; color:var(--muted); } .legend{ font-size:8.5pt; color:var(--muted); margin-top:4px; } .legend i{ display:inline-block; width:10px; height:10px; vertical-align:-1px; margin:0 3px 0 8px; border:1px solid var(--line); } @media (max-width:640px){ .rules{ grid-template-columns:1fr 1fr; } .two,.sig{ grid-template-columns:1fr; } h1{ font-size:22pt; } } @media print{ .page{ padding:0; } } :root{ color-scheme: light; } body{ background:#fff; color:var(--ink); } .page{ padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); } table{ display:block; overflow-x:auto; }", "pt": ":root{ --brown:#423327; --gold:#b4925b; --ivory:#f2f1ec; --bronze:#886d4e; --ink:#2b241d; --muted:#6b5f53; --line:#d9d2c5; --fixed:#e7dccb; --var:#f6efe2; --boys:#dfe7ee; --off:#f4f4f2; } @page{ size: letter landscape; margin: 0.4in; } *{ box-sizing:border-box; } body{ margin:0; background:#fff; color:var(--ink); font:8pt/1.28 Inter, system-ui, sans-serif; } .wrap{ max-width:10.2in; margin:0 auto; padding:12px; } header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid var(--brown); padding-bottom:6px; margin-bottom:8px; gap:10px; flex-wrap:wrap; } h1{ font-family:\"Cormorant Garamond\", Georgia, serif; font-size:20pt; line-height:1; margin:0; color:var(--brown); } .en{ color:var(--muted); font-weight:400; font-size:.85em; } .rules{ display:flex; gap:6px; flex-wrap:wrap; } .rules span{ background:var(--ivory); border-radius:12px; padding:3px 9px; font-weight:600; color:var(--brown); } .week{ display:grid; grid-template-columns:repeat(6,1fr); gap:6px; } .day{ border:1px solid var(--line); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; } .day h2{ margin:0; background:var(--brown); color:#fff; font-size:10.5pt; padding:5px 8px; } .day h2 small{ font-weight:400; opacity:.8; font-size:8pt; } .blk{ padding:3px 7px; border-top:1px solid #fff; } .blk .t{ font-weight:700; color:var(--brown); display:block; } .fixed{ background:var(--fixed); } .var{ background:var(--var); border-left:3px dashed var(--gold); } .boys{ background:var(--boys); } .off{ background:var(--off); color:var(--muted); font-style:italic; } .item{ display:block; margin-top:2px; } .item b{ color:var(--bronze); } .hrs{ margin-top:auto; padding:4px 8px; background:var(--ivory); font-weight:700; text-align:right; color:var(--brown); } .bottom{ display:grid; grid-template-columns:1.1fr 1.6fr .9fr .9fr; gap:6px; margin-top:6px; } .card{ border:1px solid var(--line); border-radius:8px; padding:5px 8px; } .card h3{ margin:0 0 3px; font-size:9.5pt; color:var(--brown); } .card ul{ margin:0; padding-left:15px; } .card li{ margin:1px 0; } .legend{ display:flex; gap:12px; margin:6px 0 0; color:var(--muted); font-size:8pt; flex-wrap:wrap; } .legend i{ display:inline-block; width:11px; height:11px; border-radius:2px; vertical-align:-1px; margin-right:4px; border:1px solid var(--line); } @media (max-width:760px){ .week{ grid-template-columns:1fr 1fr; } .bottom{ grid-template-columns:1fr; } } @media print{ .wrap{ padding:0; } .connect{ break-before:page; font-size:10pt; padding:12px 16px; } .connect h3{ font-size:14pt; margin-bottom:8px; } .connect li{ margin:6px 0; break-inside:avoid; } } @media (max-width:760px){ .connect ul{ columns:1 !important; } } :root{ color-scheme: light; } body{ background:#fff; color:var(--ink); } .wrap{ padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); } table{ display:block; overflow-x:auto; }"};
+let schedLang = "en"; try { schedLang = localStorage.getItem("fhb-sched") || (ptOn() ? "pt" : "en"); } catch(e){}
+function renderSchedule(){
+  const has = S.sched || {}, lang = has[schedLang] ? schedLang : (has.en ? "en" : "pt");
+  if(!has.en && !has.pt) return `<section class="panel"><p class="empty">No schedule has been added yet.</p></section>`;
+  return `<div class="row"><div class="seg" role="group" aria-label="Language">${["en","pt"].filter(l=>has[l]).map(l=>`<button data-schedlang="${l}" aria-pressed="${l===lang}">${l==="en"?"English":"Português"}</button>`).join("")}</div>
+    <button class="btn small" id="schedPrint">Print</button></div>
+    <iframe id="schedFrame" class="schedframe notranslate" title="${esc(has[lang].title||"Schedule")}" sandbox="allow-same-origin allow-modals" data-lang="${lang}"></iframe>`;
+}
+function fitSched(){
+  const f = $("#schedFrame"); if(!f) return; const lang = f.dataset.lang, d = S.sched[lang];
+  f.onload = () => { try { const b = f.contentDocument; f.style.height = Math.max(b.documentElement.scrollHeight, b.body.scrollHeight) + 24 + "px"; } catch(e){} };
+  f.srcdoc = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>${SCHED_CSS[lang]} body{margin:0}</style></head><body>${d.html}</body></html>`;
 }
 
 /* ---------- a child's own view ---------- */
@@ -626,6 +678,9 @@ function bind(){
   on("#trashSwap", () => { const ks = kids(), cur = (S.settings && S.settings.trashStart) || ks[0].id, i = ks.findIndex(k=>k.id===cur);
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tab = b.dataset.go; render(); window.scrollTo(0,0); });
+  document.querySelectorAll("[data-schedlang]").forEach(b => b.onclick = () => { schedLang = b.dataset.schedlang; try{ localStorage.setItem("fhb-sched", schedLang); }catch(e){} render(); });
+  on("#schedPrint", () => { const f = $("#schedFrame"); try { f.contentWindow.focus(); f.contentWindow.print(); } catch(e){ window.print(); } });
 }
 
 /* ---------- Portuguese translation (Google Translate, turned on per device) ---------- */
