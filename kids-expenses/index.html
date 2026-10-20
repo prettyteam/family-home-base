@@ -128,6 +128,7 @@ details.cat[open] summary::after{transform:rotate(-135deg)}
 .hhi span:first-child{font-size:20px;color:var(--muted)}
 .hhi .hname{font-size:40px;color:var(--ink)}
 .hdate{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer}
 .hbal{margin:6px 0 0;text-align:center;font-family:var(--display);font-style:italic;font-size:18px;color:var(--accent)}
 .mhead{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);margin-top:10px}
 .mhead::before,.mhead::after{content:"";width:28px;height:1px;background:var(--ink)}
@@ -342,7 +343,7 @@ function homeHtml(owner){
     .concat(owner ? [`<a href="../"><span>Family Home Base</span><small>Back to the home app</small></a>`] : []);
   return `<section class="home">
     <div class="hhi"><span>Hello,</span><span class="hname">${owner ? "Alexandra" : "John"}</span></div>
-    <p class="hdate">${d.toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}</p>
+    <p class="hdate">${d.toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})} · <button type="button" class="linkbtn" id="signOut">Not ${owner ? "Alexandra" : "John"}? Sign out</button></p>
     <p class="hbal">${esc(balLabel(t, owner))}${Math.abs(t.all) < 0.005 ? "" : `: <span class="num">${fmt(Math.abs(t.all))}</span>`}</p>
     <div class="mhead">Menu</div>
     <div class="cgrid">${tiles.filter(Boolean).join("")}</div>
@@ -365,6 +366,7 @@ function render(){
     if (b.dataset.opencat) { S.open = {}; S.open[b.dataset.opencat] = true; S.filter = "Owed"; }
     S.tab = b.dataset.go; render(); window.scrollTo(0, 0);
   });
+  const out = $("#signOut"); if (out) out.onclick = () => { try { localStorage.removeItem(PIN_KEY); } catch (e) {} pin = ""; S.role = null; gate(); };
   const add = $("#addBtn"); if (add) add.onclick = () => openForm(null);
   document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
   document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { S.filter = b.dataset.f; render(); });
