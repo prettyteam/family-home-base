@@ -6,13 +6,14 @@
  * shown through this script, so a receipt link can't be passed around.
  * Passcodes are kept in Script Properties, never in this file or in the shared Sheet:
  *   OWNER_PIN  Alexandra: add, edit, mark paid, delete
- *   VIEW_PIN   John: view items, totals and receipts
+ *   VIEW_PIN   John: view everything, and add, edit or delete the expenses he paid himself
+ * Items John adds are marked "John" in the "Paid by" column; Alexandra owes him half of those.
  */
 const SHEET_ID = "12D_wZzJon9UAr5Mr3ciltY-Y945ISETXblD1aJUm8rA"; // "KIDS 2026"
 const LOG_TAB = "Expense Log";
 const OLD_TAB = "Owed Expenses (Split Amt)";
 const OLD_BALANCE_CELL = "B3"; // "JOHN OWES ALEX:" on the older tab
-const HEAD = ["ID", "Date", "Child", "Category", "What", "Full amount", "John's half", "Status", "Paid on", "Note", "Receipt", "Added"];
+const HEAD = ["ID", "Date", "Child", "Category", "What", "Full amount", "John's half", "Status", "Paid on", "Note", "Receipt", "Added", "Paid by"];
 const STATUSES = ["Owed", "Paid", "Declined"];
 const MAX_RECEIPT_BYTES = 15 * 1024 * 1024;
 
@@ -41,6 +42,8 @@ function log_() {
     sh.setFrozenRows(1);
     sh.getRange("F:G").setNumberFormat("$#,##0.00");
   }
+  // The "Paid by" column came later: add its heading once, next to the older ones. Rows left blank were paid by Alexandra.
+  if (sh.getLastColumn() < HEAD.length) sh.getRange(1, HEAD.length).setValue(HEAD[HEAD.length - 1]).setFontWeight("bold");
   return sh;
 }
 
@@ -55,7 +58,7 @@ function items_() {
     list.push({
       id: String(v[0]), date: day_(v[1]), child: String(v[2]), category: String(v[3]), what: String(v[4]),
       full: money_(v[5]), half: money_(v[6]), status: String(v[7] || "Owed"), paidOn: day_(v[8]),
-      note: String(v[9] || ""), hasReceipt: !!v[10]
+      note: String(v[9] || ""), hasReceipt: !!v[10], paidBy: v[12] === "John" ? "John" : "Alexandra"
     });
   }
   return list;
@@ -196,8 +199,8 @@ function saveReceipt_(r, rec) {
   return folder_().createFile(Utilities.newBlob(bytes, mime, name)).getId();
 }
 
-function row_(id, rec, receipt, added) {
-  return [id, rec.date, rec.child, rec.category, rec.what, rec.full, rec.half, rec.status, rec.paidOn, rec.note, receipt, added];
+function row_(id, rec, receipt, added, paidBy) {
+  return [id, rec.date, rec.child, rec.category, rec.what, rec.full, rec.half, rec.status, rec.paidOn, rec.note, receipt, added, paidBy === "John" ? "John" : ""];
 }
 
 function doGet() {
@@ -216,18 +219,20 @@ function doPost(e) {
       const blob = DriveApp.getFileById(fileId).getBlob();
       return out_({ ok: true, mime: blob.getContentType(), b64: Utilities.base64Encode(blob.getBytes()) });
     }
-    if (role !== "owner") throw new Error("Only Alexandra can change this.");
     const lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
       const sh = log_();
       if (act === "add") {
-        const rec = clean_(body.data || {});
+        const rec = clean_(body.data || {}), by = role === "owner" ? "" : "John";
+        if (by) { rec.status = "Owed"; rec.paidOn = ""; }
         const id = Utilities.getUuid().slice(0, 8);
-        sh.appendRow(row_(id, rec, saveReceipt_(body.receipt, rec), new Date()));
+        sh.appendRow(row_(id, rec, saveReceipt_(body.receipt, rec), new Date(), by));
         return out_({ ok: true, id: id });
       }
       const row = findRow_(body.id), old = sh.getRange(row, 1, 1, HEAD.length).getValues()[0];
+      // John can only change the expenses he paid himself.
+      if (role !== "owner" && old[12] !== "John") throw new Error("Only Alexandra can change this one.");
       if (act === "update") {
         const rec = clean_(body.data || {});
         let receipt = old[10];
@@ -235,7 +240,7 @@ function doPost(e) {
           if (receipt) { try { DriveApp.getFileById(receipt).setTrashed(true); } catch (x) {} }
           receipt = saveReceipt_(body.receipt, rec);
         }
-        sh.getRange(row, 1, 1, HEAD.length).setValues([row_(old[0], rec, receipt, old[11])]);
+        sh.getRange(row, 1, 1, HEAD.length).setValues([row_(old[0], rec, receipt, old[11], old[12])]);
         return out_({ ok: true, id: old[0] });
       }
       if (act === "delete") {
@@ -271,7 +276,7 @@ function setup() {
   const lines = [
     ["Who", "Passcode"],
     ["Alexandra (add and change)", p.getProperty("OWNER_PIN")],
-    ["John (view only)", p.getProperty("VIEW_PIN")],
+    ["John (view, and add his own)", p.getProperty("VIEW_PIN")],
     ["Note", "Keep this Sheet private. To change a passcode, ask Claude."]
   ];
   const sh = ss.getSheets()[0];
