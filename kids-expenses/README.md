@@ -11,10 +11,14 @@ A simple page for the boys' costs that are split 50/50. Alexandra enters the ful
 - Receipts go to a private **Kids Expense Receipts** folder in Alexandra's Drive. They're shown only through the page, so nobody gets a link to the files themselves.
 - This repository holds only the code: no names, amounts or receipts.
 
+## Homepage
+
+The page opens on a homepage like the other apps: hello, the date, the balance, then menu squares for Expenses, Add an expense, Coming up and each category.
+
 ## Two passcodes
 
 - **Alexandra:** add, edit, mark paid or "John said no", delete.
-- **John:** view the list, the totals and the receipts. He can't change anything.
+- **John:** view the list, the totals and the receipts, and add the expenses he paid himself (with a receipt). He can edit or delete only his own items. Alexandra owes him half of those, and the total at the top nets the two sides.
 
 The passcodes are kept in the script's settings and written to a separate private Sheet called **Kids Expenses Passcodes**, never to KIDS 2026 (John can see that one). After 20 wrong tries the page locks for 15 minutes.
 
