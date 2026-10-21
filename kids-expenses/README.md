@@ -15,6 +15,8 @@ A simple page for the boys' costs that are split 50/50. Alexandra enters the ful
 
 The page opens on a homepage like the other apps: hello, the date, the balance, then menu squares for Expenses, Add an expense, Coming up and each category.
 
+Alexandra's view also shows when John last opened the page ("John last looked …"). The script notes the time whenever his passcode loads the list and keeps it in Script Properties (`JOHN_LAST_SEEN`), not in the shared Sheet. A Refresh bar along the bottom pulls the latest on every tab.
+
 ## Two passcodes
 
 - **Alexandra:** add, edit, mark paid or "John said no", delete.
