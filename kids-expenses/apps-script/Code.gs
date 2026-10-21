@@ -212,7 +212,13 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents || "{}");
     const role = role_(String(body.pin || ""));
     const act = body.action;
-    if (act === "list") return out_({ ok: true, role: role, items: items_(), oldBalance: oldBalance_(), oldItems: oldItems_(), kids: kids_(), upcoming: upcoming_() });
+    if (act === "list") {
+      // Note when John (the view passcode) last opened the page; only Alexandra is shown it.
+      const props = PropertiesService.getScriptProperties();
+      if (role !== "owner") props.setProperty("JOHN_LAST_SEEN", new Date().toISOString());
+      return out_({ ok: true, role: role, items: items_(), oldBalance: oldBalance_(), oldItems: oldItems_(), kids: kids_(), upcoming: upcoming_(),
+        johnSeen: role === "owner" ? (props.getProperty("JOHN_LAST_SEEN") || "") : undefined });
+    }
     if (act === "receipt") {
       const fileId = log_().getRange(findRow_(body.id), 11).getValue();
       if (!fileId) throw new Error("No receipt on this one yet.");
