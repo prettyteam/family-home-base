@@ -54,6 +54,11 @@ function purgeOldTodos_() {
   rows_("chores").filter(c => c.date && c.date < old).forEach(c => write_("delete", "chores", c._id));
 }
 
+/** Remembers when the au pair last had the app open, so Alexandra can see it on her homepage. */
+function seen_(role) {
+  if (role === "nanny") PropertiesService.getScriptProperties().setProperty("SEEN_NANNY", new Date().toISOString());
+}
+
 function readAll_(role) {
   purgeOldTodos_();
   const data = {};
@@ -61,6 +66,7 @@ function readAll_(role) {
   data.games = games_();
   try { data.cal = familyCal_(); } catch (e) { console.warn("Skipped Alexandra's calendar: " + e.message); data.cal = []; }
   data.settings.forEach(s => delete s.feeds); // feed links carry private tokens
+  if (role === "mom") data.seen = { nanny: PropertiesService.getScriptProperties().getProperty("SEEN_NANNY") || "" };
   if (role === "nanny") {
     data.settings.forEach(s => { if (s.showPayToNanny !== "yes") { delete s.rate; delete s.weeklyPay; } });
     data.cal = data.cal.filter(e => !e.work);
@@ -122,7 +128,7 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents || "{}");
     const role = role_(String(body.pin || ""));
-    if (body.action === "list") return out_({ ok: true, role: role, data: readAll_(role) });
+    if (body.action === "list") { seen_(role); return out_({ ok: true, role: role, data: readAll_(role) }); }
     const op = body.action, coll = body.coll;
     if (["set", "update", "delete"].indexOf(op) < 0 || COLLS.indexOf(coll) < 0) throw new Error("Unknown request.");
     if (role === "nanny" && (NANNY_WRITES[coll] || []).indexOf(op) < 0) throw new Error("Only Alexandra can change that.");
