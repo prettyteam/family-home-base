@@ -206,7 +206,7 @@ const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], 
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "home", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
-if(/^#(home|today|hours|schedule|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
+if(/^#(home|today|hours|schedule|school|activities|todos|notes|guides)$/.test(location.hash)) tab = location.hash.slice(1);
 
 const kids = () => (S.settings && S.settings.kids) || [];
 const kidById = id => kids().find(k => k.id === id);
@@ -585,6 +585,7 @@ function render(){
 
   if(tab === "home"){ m.innerHTML = top + renderHome(); bind(); return; }
   if(tab === "schedule"){ m.innerHTML = top + renderSchedule(); bind(); fitSched(); return; }
+  if(tab === "guides"){ if(!isMom()) tab = "home"; else { m.innerHTML = renderGuides(); bindGuides(); return; } }
   const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes}[tab]();
   m.innerHTML = top + body;
   bind();
@@ -600,7 +601,7 @@ function renderHome(){
     school: due ? due+" due soon" : "", activities: "", todos: openTodos ? openTodos+" open" : "All caught up", notes: ""};
   const hello = isMom() ? "Alexandra" : nannyName();
   const tiles = HOME_TILES.map(([k,l]) => `<button type="button" data-go="${k}"><span>${esc(l)}</span>${sub[k]?`<small>${esc(sub[k])}</small>`:""}</button>`)
-    .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
+    .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`, `<button type="button" data-go="guides"><span>Send the App Guide</span><small>Text the how-to PDF</small></button>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
   return `<section class="home">
     <div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
     <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
@@ -627,6 +628,67 @@ function fitSched(){
   const f = $("#schedFrame"); if(!f) return; const lang = f.dataset.lang, d = S.sched[lang];
   f.onload = () => { try { const b = f.contentDocument; f.style.height = Math.max(b.documentElement.scrollHeight, b.body.scrollHeight) + 24 + "px"; } catch(e){} };
   f.srcdoc = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"><style>${SCHED_CSS[lang]} body{margin:0}</style></head><body>${d.html}</body></html>`;
+}
+
+/* ---------- Send the App Guide (Alexandra only, like the Weddings app's card, Oct 23 2026)
+   Each person gets a note from Alexandra plus their own how-to PDF (guide/*.pdf, built from the guide source in project files).
+   Send opens the phone's share sheet with the PDF and the note together, so she picks Messages and the person. ---------- */
+const APP_LINK = "https://prettyteam.github.io/family-home-base/";
+function guidePeople(){
+  const n = nannyName(), list = [{key:"aupair", name:n, what:"Au pair guide: Today, clocking in and out, her checklist, school, activities, to-dos and Family Facts", langs:true,
+    file:{en:"guide/aupair.pdf", pt:"guide/aupair-pt.pdf"}, pdfName:{en:"Home Base Guide for "+n+".pdf", pt:"Guia do Home Base - "+n+".pdf"},
+    msg:{en:`Hi ${n}! 🤍 I've been working on our Home Base app so everything for the boys & the house is in one place. My goal is to keep us all as organized as possible & make your days easier - your schedule, clocking in & out, your daily checklist, the boys' homework, activities & to-dos are all in there. I attached a short guide that walks you through each page. Read through it when you get a chance & let me know if anything is confusing - I can better explain it in person if needed! Open it here: ${APP_LINK} Thank you for everything you do for us! xo`,
+      pt:`Oi ${n}! 🤍 Eu estou trabalhando no nosso app Home Base para que tudo dos meninos & da casa fique em um só lugar. Meu objetivo é deixar todos nós o mais organizados possível & facilitar os seus dias - o seu horário, registrar entrada & saída, o seu checklist diário, a lição de casa dos meninos, as atividades & os to-dos estão todos lá. Mandei um guia curto que mostra como usar cada página. Leia quando puder & me avise se algo ficar confuso - posso explicar pessoalmente se precisar! Abra aqui: ${APP_LINK} Obrigada por tudo que você faz por nós! xo`}}];
+  kids().filter(k => /^(julian|grayson)$/i.test(k.name||"")).forEach(k => list.push({key:k.name.toLowerCase(), name:k.name, what:"His own view: My Assignments, Home Tasks and My Calendar",
+    file:{en:"guide/"+k.name.toLowerCase()+".pdf"}, pdfName:{en:"Home Base Guide for "+k.name+".pdf"},
+    msg:{en:`Hi ${k.name}! 🤍 I made you your own Home Base so your assignments, your home tasks & your calendar are all in one spot. I'm trying to keep all of us organized & make things easier for everybody. I attached a quick guide that shows you how it works - read it when you get a sec. Check it EVERY day after school: turn your work in on Google Classroom first, then check it off. Open it here: ${APP_LINK} Love you! xo Mom`}}));
+  list.push({key:"john", name:"John", what:"Kids' Expenses: the balance, receipts and adding expenses he paid",
+    file:{en:"guide/kids-expenses.pdf"}, pdfName:{en:"Kids Expenses Guide.pdf"},
+    msg:{en:`Hi John, I've been working on a page to keep the boys' shared expenses organized in one place. Every expense has the receipt attached & it keeps a running balance for both of us, so nothing gets lost. You can also add expenses you paid yourself with a receipt. I attached a short guide that shows how it works. Open it here: ${APP_LINK}kids-expenses/ Let me know if you have any questions.`}});
+  return list;
+}
+const guideLang = {}; // per person: "en" or "pt"
+const gKey = (p, l) => "fhb-guide-" + p.key + "-" + l;
+function guideMsg(p, l){ let v = null; try { v = localStorage.getItem(gKey(p,l)); } catch(e){} return v != null ? v : p.msg[l]; }
+function renderGuides(){
+  return `<div class="row"><h2>Send the App Guide</h2><button class="btn small" data-go="home">‹ Home</button></div>
+  <p class="note">Pick a person, read the note, then tap <b>Send</b>. Your phone opens the share sheet with their PDF and the note together. Tap <b>Messages</b>, pick the person and send. You can change the words first; your changes stay on this phone.</p>
+  ${guidePeople().map(p => { const l = guideLang[p.key] || "en";
+    return `<section class="panel" data-gp="${p.key}"><div class="row"><div><h3 style="margin:0">${esc(p.name)}</h3><div class="meta">${esc(p.what)}</div></div>
+      ${p.langs?`<div class="seg" role="group" aria-label="Language"><button data-glang="en" aria-pressed="${l==="en"}">English</button><button data-glang="pt" aria-pressed="${l==="pt"}">Português</button></div>`:""}</div>
+      <label class="f" style="margin-top:10px">The note<textarea rows="10" data-gmsg>${esc(guideMsg(p,l))}</textarea></label>
+      <div class="row" style="margin-top:10px;justify-content:flex-start;gap:8px"><button class="btn primary" data-gsend>Send</button><button class="btn" data-gcopy>Copy note</button><a class="btn ghost" href="${p.file[l]}" target="_blank" rel="noopener">See the PDF</a><button class="btn ghost small" data-greset>Reset note</button></div></section>`; }).join("")}`;
+}
+function bindGuides(){
+  const people = guidePeople();
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tab = b.dataset.go; render(); window.scrollTo(0,0); });
+  document.querySelectorAll("[data-gp]").forEach(card => {
+    const p = people.find(x => x.key === card.dataset.gp), lang = () => guideLang[p.key] || "en", ta = $("[data-gmsg]", card);
+    ta.oninput = () => { try { localStorage.setItem(gKey(p, lang()), ta.value); } catch(e){} };
+    card.querySelectorAll("[data-glang]").forEach(b => b.onclick = () => { guideLang[p.key] = b.dataset.glang; render(); });
+    $("[data-greset]", card).onclick = () => { try { localStorage.removeItem(gKey(p, lang())); } catch(e){} ta.value = p.msg[lang()]; };
+    $("[data-gcopy]", card).onclick = async e => { const b = e.currentTarget;
+      try { await navigator.clipboard.writeText(ta.value); b.textContent = "Copied"; } catch(_){ b.textContent = "Couldn't copy"; }
+      setTimeout(() => { if(b.isConnected) b.textContent = "Copy note"; }, 2500); };
+    $("[data-gsend]", card).onclick = e => sendGuide(e.currentTarget, p, lang(), ta.value);
+  });
+}
+/* Same steps as the Weddings app: share the PDF with the words; if the phone says the tap "expired" while the PDF
+   was loading, the button turns into "Tap again to send"; without a share sheet (a computer) it saves the PDF and copies the note. */
+async function sendGuide(btn, p, l, text){
+  if(btn._ready){ const f = btn._ready; btn._ready = null; btn.textContent = "Send"; try { await navigator.share({files:[f], text}); } catch(e){} return; }
+  btn.disabled = true; btn.textContent = "Getting PDF…";
+  let f;
+  try { const r = await fetch(p.file[l], {cache:"no-cache"}); if(!r.ok) throw 0; f = new File([await r.blob()], p.pdfName[l], {type:"application/pdf"}); }
+  catch(e){ btn.disabled = false; btn.textContent = "Send"; return toast("Couldn't get the PDF. Check your connection and try again."); }
+  btn.disabled = false; btn.textContent = "Send";
+  if(navigator.canShare && navigator.canShare({files:[f]})){
+    try { await navigator.share({files:[f], text}); }
+    catch(e){ if(e && e.name === "NotAllowedError"){ btn._ready = f; btn.textContent = "Tap again to send"; } }
+  } else {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+    try { await navigator.clipboard.writeText(text); toast("PDF saved and the note is copied. Attach the PDF to your text and paste the note."); } catch(e){ toast("PDF saved. Copy the note and attach the PDF to your text."); }
+  }
 }
 
 /* ---------- a child's own view ---------- */
@@ -771,7 +833,7 @@ $("#rbarBtn").onclick = () => { const b = $("#rbarBtn"); if(!db || b.disabled) r
   refresh().then(render).catch(() => toast("Couldn't refresh. Check your connection and try again.")).finally(() => { b.disabled = false; b.textContent = "Refresh"; });
 };
 $("#signOut").onclick = () => { try { localStorage.removeItem("fhb-pin"); } catch(e){} db = null; pin = ""; kidMode = ""; delete document.documentElement.dataset.kid; $("h1").textContent = "Family Home Base"; render(); };
-setInterval(() => { if(db && document.visibilityState === "visible" && !$("#dlg").open) refresh().then(render).catch(()=>{}); }, 30000);
+setInterval(() => { if(db && document.visibilityState === "visible" && !$("#dlg").open && tab !== "guides") refresh().then(render).catch(()=>{}); }, 30000);
 document.addEventListener("visibilitychange", () => { if(db && document.visibilityState === "visible") refresh().then(render).catch(()=>{}); });
 let saved = ""; try { saved = localStorage.getItem("fhb-pin") || ""; } catch(e){}
 if(API_URL.indexOf("http") !== 0) $("#main").innerHTML = `<div class="panel"><p class="empty">Almost ready. The Google Sheet connection hasn't been added yet (see README).</p></div>`;
