@@ -199,6 +199,39 @@ function saveReceipt_(r, rec) {
   return folder_().createFile(Utilities.newBlob(bytes, mime, name)).getId();
 }
 
+const SITE_URL = "https://prettyteam.github.io/family-home-base/kids-expenses/";
+
+/**
+ * When Alexandra adds an expense, John gets a short email with what it was, his half and the new total,
+ * plus a link to the page (the receipt stays on the page, not in the email). Edits don't send anything.
+ * Set the Script Property EMAIL_JOHN to "no" to stop these emails. A failed email never stops the save.
+ */
+function emailJohn_(rec, hasReceipt) {
+  const p = PropertiesService.getScriptProperties();
+  if (p.getProperty("EMAIL_JOHN") === "no") return;
+  try {
+    const to = p.getProperty("VIEWER_EMAIL") || "jenks020@gmail.com";
+    const money = n => "$" + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const when = Utilities.formatDate(new Date(rec.date + "T12:00:00"), Session.getScriptTimeZone(), "EEE, MMM d");
+    const list = items_(), earlier = oldBalance_() || 0;
+    const total = earlier + list.reduce((a, i) => a + (i.status !== "Owed" ? 0 : i.paidBy === "John" ? -i.half : i.half), 0);
+    const kid = rec.child && rec.child !== "Both" ? rec.child : "both boys";
+    const lines = [
+      "Hi John,", "",
+      "I added a new expense for the kids:", "",
+      rec.what + " (" + kid + ", " + rec.category + ")",
+      when + " · Full amount " + money(rec.full),
+      "Your half: " + money(rec.half),
+      rec.note ? "Note: " + rec.note : "",
+      "", hasReceipt ? "The receipt is on the page." : "",
+      (total >= 0 ? "Total you owe now: " : "Total I owe you now: ") + money(Math.abs(total)), "",
+      "See it here with your passcode: " + SITE_URL, "",
+      "Alexandra"
+    ].filter((l, i, a) => l !== "" || a[i - 1] !== "");
+    MailApp.sendEmail({ to: to, subject: "New kids expense: " + rec.what + " (your half " + money(rec.half) + ")", body: lines.join("\n"), name: "Alexandra" });
+  } catch (e) { console.warn("Couldn't email John: " + e.message); }
+}
+
 function row_(id, rec, receipt, added, paidBy) {
   return [id, rec.date, rec.child, rec.category, rec.what, rec.full, rec.half, rec.status, rec.paidOn, rec.note, receipt, added, paidBy === "John" ? "John" : ""];
 }
@@ -212,7 +245,13 @@ function doPost(e) {
     const body = JSON.parse(e.postData.contents || "{}");
     const role = role_(String(body.pin || ""));
     const act = body.action;
-    if (act === "list") return out_({ ok: true, role: role, items: items_(), oldBalance: oldBalance_(), oldItems: oldItems_(), kids: kids_(), upcoming: upcoming_() });
+    if (act === "list") {
+      // Note when John (the view passcode) last opened the page; only Alexandra is shown it.
+      const props = PropertiesService.getScriptProperties();
+      if (role !== "owner") props.setProperty("JOHN_LAST_SEEN", new Date().toISOString());
+      return out_({ ok: true, role: role, items: items_(), oldBalance: oldBalance_(), oldItems: oldItems_(), kids: kids_(), upcoming: upcoming_(),
+        johnSeen: role === "owner" ? (props.getProperty("JOHN_LAST_SEEN") || "") : undefined });
+    }
     if (act === "receipt") {
       const fileId = log_().getRange(findRow_(body.id), 11).getValue();
       if (!fileId) throw new Error("No receipt on this one yet.");
@@ -227,7 +266,9 @@ function doPost(e) {
         const rec = clean_(body.data || {}), by = role === "owner" ? "" : "John";
         if (by) { rec.status = "Owed"; rec.paidOn = ""; }
         const id = Utilities.getUuid().slice(0, 8);
-        sh.appendRow(row_(id, rec, saveReceipt_(body.receipt, rec), new Date(), by));
+        const receipt = saveReceipt_(body.receipt, rec);
+        sh.appendRow(row_(id, rec, receipt, new Date(), by));
+        if (!by) emailJohn_(rec, !!receipt);
         return out_({ ok: true, id: id });
       }
       const row = findRow_(body.id), old = sh.getRange(row, 1, 1, HEAD.length).getValues()[0];
