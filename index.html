@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>Family Home Base</title>
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png?v=2">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png?v=2">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-title" content="Home Base">
 <meta name="theme-color" content="#f6e9e4">
@@ -52,6 +52,10 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font
 header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
 h1{font-family:var(--display);font-weight:500;font-size:clamp(28px,6vw,40px);line-height:1.05;margin:0;letter-spacing:-.01em}
 .sub{color:var(--muted);margin:4px 0 0}
+/* Back on every page, title goes Home (Alexandra, Oct 24 2026) */
+.backbtn{display:block;border:0;background:none;color:var(--ink);font:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;padding:6px 0;margin:0 0 6px;cursor:pointer}
+.backbtn[hidden]{display:none}
+header.top h1{cursor:pointer}
 h2{font-family:var(--display);font-weight:500;font-size:22px;margin:0;text-wrap:balance}
 h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
 .role{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -145,7 +149,8 @@ body{top:0!important}
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Family Home Base</h1>
+      <button type="button" class="backbtn" id="backBtn" hidden>‹ Back</button>
+      <h1 title="Home">Family Home Base</h1>
       <p class="sub" id="todayLine">Loading…</p>
     </div>
     <div class="role" id="roleBox" hidden>
@@ -207,6 +212,19 @@ const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], 
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "home", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
 if(/^#(home|today|hours|schedule|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
+/* Back: the page before, then Home, then Pretty Life when she opened this from there (?from=life). The title goes Home. */
+const LIFE = "https://prettyteam.taffetadesign.com/briefing/";
+let fromLife = false;
+try { const u = new URL(location.href);
+  if(u.searchParams.get("from") === "life"){ sessionStorage.setItem("fhb-from-life","1"); u.searchParams.delete("from"); history.replaceState(null,"",u.toString()); }
+  fromLife = sessionStorage.getItem("fhb-from-life") === "1"; } catch(e){}
+try { history.replaceState({fhb:tab, d:0}, ""); } catch(e){}
+function goTab(t){
+  if(t !== tab){ try { history.pushState({fhb:t, d:((history.state && history.state.d) || 0) + 1}, ""); } catch(e){} }
+  tab = t; try{ localStorage.setItem("fhb-tab", tab); }catch(e){} render(); window.scrollTo(0,0);
+}
+function drawBack(){ $("#backBtn").hidden = !((db && !kidMode && tab !== "home") || (history.state && history.state.d > 0) || fromLife); }
+addEventListener("popstate", e => { if(e.state && e.state.fhb){ tab = e.state.fhb; render(); window.scrollTo(0,0); } });
 
 const kids = () => (S.settings && S.settings.kids) || [];
 const kidById = id => kids().find(k => k.id === id);
@@ -567,6 +585,7 @@ function setupForm(){
 function render(){
   const t = new Date();
   $("#signOut").hidden = !db;
+  drawBack();
   $("#rbar").hidden = !db;
   if(db && S.loadedAt){ const a = S.loadedAt, today = ymd(a) === ymd(new Date());
     $("#rbarAt").textContent = "Updated " + (today ? "" : a.toLocaleDateString(undefined,{month:"short",day:"numeric"}) + ", ") + a.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}); }
@@ -720,7 +739,7 @@ function bind(){
   on("#trashSwap", () => { const ks = kids(), cur = (S.settings && S.settings.trashStart) || ks[0].id, i = ks.findIndex(k=>k.id===cur);
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
-  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tab = b.dataset.go; render(); window.scrollTo(0,0); });
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => goTab(b.dataset.go));
   document.querySelectorAll("[data-schedlang]").forEach(b => b.onclick = () => { schedLang = b.dataset.schedlang; try{ localStorage.setItem("fhb-sched", schedLang); }catch(e){} render(); });
   on("#schedCopy", async () => { const f = $("#schedFrame"), b = $("#schedCopy"); let txt = "";
     try { txt = f.contentDocument.body.innerText.replace(/\n{3,}/g, "\n\n").trim(); } catch(e){}
@@ -744,7 +763,10 @@ if(ptOn()){
   const sc = document.createElement("script"); sc.src = "https://translate.google.com/translate_a/element.js?cb=gtInit"; document.head.appendChild(sc);
 }
 
-document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; try{ localStorage.setItem("fhb-tab", tab); }catch(e){} render(); });
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => goTab(b.dataset.tab));
+$("#backBtn").onclick = () => { if(history.state && history.state.d > 0) history.back(); else if(db && !kidMode && tab !== "home") goTab("home"); else if(fromLife) location.href = LIFE; };
+drawBack();
+$("h1").onclick = () => { if(db && !kidMode && tab !== "home") goTab("home"); else if(fromLife) location.href = LIFE; };
 function setView(v){ viewAs = v; $("#asMom").setAttribute("aria-pressed", String(v==="mom")); $("#asNanny").setAttribute("aria-pressed", String(v==="nanny")); render(); }
 $("#asMom").onclick = () => setView("mom"); $("#asNanny").onclick = () => setView("nanny");
 
