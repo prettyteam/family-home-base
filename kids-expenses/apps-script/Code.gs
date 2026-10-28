@@ -145,16 +145,38 @@ function upcoming_() {
     list.push({ title: title, start: s.toISOString(), end: e.toISOString(), allDay: allDay, location: loc,
       kid: kidM ? kidM[1].charAt(0).toUpperCase() + kidM[1].slice(1).toLowerCase() : "", type: type });
   };
+  // Only kid, medical, school or John events; a boy's own calendar counts as naming him.
+  const kidStuff = (ev, calKid) => {
+    const title = ev.getTitle() || "", desc = ev.getDescription() || "";
+    const johnToo = ev.getGuestList().some(g => g.getEmail().toLowerCase() === viewer) || String(ev.getCreators()[0] || "").toLowerCase() === viewer;
+    return calKid || (kidRe && kidRe.test(title)) || medical.test(title) || school.test(title + " " + desc) || johnToo;
+  };
   try {
-    CalendarApp.getDefaultCalendar().getEvents(from, to).forEach(ev => {
-      const title = ev.getTitle() || "", desc = ev.getDescription() || "";
-      const johnToo = ev.getGuestList().some(g => g.getEmail().toLowerCase() === viewer) || String(ev.getCreators()[0] || "").toLowerCase() === viewer;
-      if ((kidRe && kidRe.test(title)) || medical.test(title) || school.test(title + " " + desc) || johnToo) add(ev, "Activity");
-    });
+    CalendarApp.getDefaultCalendar().getEvents(from, to).forEach(ev => { if (kidStuff(ev)) add(ev, "Activity"); });
   } catch (e) { console.warn("Couldn't read Alexandra's calendar: " + e.message); }
   try {
     CalendarApp.getCalendarsByName("Family Home Base").forEach(cal => cal.getEvents(from, to).forEach(ev => add(ev, "Activity")));
   } catch (e) { console.warn("Couldn't read the Family Home Base calendar: " + e.message); }
+  // The other Skylight calendars (Family, Home, the boys') once they're shared with her Gmail.
+  let others = [];
+  try {
+    const mine = CalendarApp.getDefaultCalendar().getId();
+    others = CalendarApp.getAllCalendars().filter(cal => {
+      const id = cal.getId(), name = cal.getName() || "";
+      return id !== mine && name !== "Family Home Base" && !/holiday|#contacts|#weather/i.test(id + " " + name) && !/taffeta/i.test(id + " " + name);
+    });
+  } catch (e) { console.warn("Couldn't list calendars: " + e.message); }
+  others.forEach(cal => {
+    try {
+      const m = kidRe && (cal.getName() + " " + cal.getId()).match(kidRe);
+      cal.getEvents(from, to).forEach(ev => {
+        if (!kidStuff(ev, !!m)) return;
+        const n = list.length;
+        add(ev, "Activity");
+        if (m && list.length > n && !list[n].kid) list[n].kid = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+      });
+    } catch (e) { console.warn("Couldn't read " + cal.getName() + ": " + e.message); }
+  });
   list.sort((x, y) => x.start.localeCompare(y.start));
   const out = list.slice(0, 120);
   cache.put("upcoming", JSON.stringify(out), 600);
