@@ -17,6 +17,8 @@ The page opens on a homepage like the other apps: hello, the date, the balance, 
 
 Alexandra's view also shows when John last opened the page ("John last looked …"). The script notes the time whenever his passcode loads the list and keeps it in Script Properties (`JOHN_LAST_SEEN`), not in the shared Sheet. A Refresh bar along the bottom pulls the latest on every tab.
 
+When Alexandra adds an expense, John gets a short email from her Gmail with what it was, his half, the new total and a link to the page. Edits and items John adds himself don't send anything. To stop these emails, add the Script Property `EMAIL_JOHN` set to `no`.
+
 ## Two passcodes
 
 - **Alexandra:** add, edit, mark paid or "John said no", delete.
