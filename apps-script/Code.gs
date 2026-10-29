@@ -297,7 +297,8 @@ function syncCalendarNow_() {
 /**
  * Events on Alexandra's Google calendar (the one the Skylight adds to) for the next 30 days.
  * Work events (video calls, client bookings) are marked so only her view shows them.
- * Kept for 10 minutes. These are never copied into the "Family Home Base" calendar, so the Skylight doesn't show them twice.
+ * Also events added by hand to the "Family Home Base" calendar. Kept for 10 minutes.
+ * Her own events are never copied into the "Family Home Base" calendar, so the Skylight doesn't show them twice.
  */
 function familyCal_() {
   const cache = CacheService.getScriptCache(), hit = cache.get("familyCal");
@@ -311,7 +312,18 @@ function familyCal_() {
     const cal = CalendarApp.getDefaultCalendar();
     // Her own address is the default calendar's id (asking Session for it would need an extra permission).
     const me = cal.getId().toLowerCase();
-    list = cal.getEvents(from, to).map(ev => {
+    // Events added straight onto "Family Home Base" (on the Skylight) count too; the ones the app copied there (tagged) are already in the app.
+    const fhbId = PropertiesService.getScriptProperties().getProperty("CALENDAR_ID"), fhb = fhbId && CalendarApp.getCalendarById(fhbId);
+    // Untagged copies from older syncs are skipped by name: activities, events, games and shifts.
+    const ours = {};
+    rows_("activities").forEach(a => ours[String(a.name).toLowerCase()] = true);
+    rows_("events").forEach(e => ours[String(e.title).toLowerCase()] = true);
+    games_().forEach(g => ours[String(g.title).toLowerCase()] = true);
+    const added = fhb ? fhb.getEvents(from, to).filter(ev => {
+      const t = ev.getTitle() || "";
+      return !ev.getTag("fhb") && !/ working$/.test(t) && !ours[t.replace(/^[^:]+:\s*/, "").toLowerCase()];
+    }) : [];
+    list = cal.getEvents(from, to).concat(added).map(ev => {
       const title = ev.getTitle() || "", loc = ev.getLocation() || "", desc = ev.getDescription() || "";
       const guests = ev.getGuestList().map(g => g.getEmail().toLowerCase()).filter(e => e !== me);
       const mineToo = String(ev.getCreators()[0] || "").toLowerCase() === me;
