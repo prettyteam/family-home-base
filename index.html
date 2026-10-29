@@ -76,6 +76,7 @@ nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(-
 .rbar button{border:0;background:none;color:var(--ink);font:inherit;font-size:11px;letter-spacing:.18em;text-transform:uppercase;padding:6px 2px;cursor:pointer}
 body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bottom))}
 .hdate{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.hseen{margin:0;color:var(--muted);font-size:13px;text-align:center}
 .hquote{margin:6px 0 0;max-width:30ch;text-align:center;font-family:var(--display);font-style:italic;font-size:18px;line-height:1.35;color:var(--accent);text-wrap:balance}
 .mhead{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);margin-top:10px}
 .mhead::before,.mhead::after{content:"";width:28px;height:1px;background:var(--ink)}
@@ -247,6 +248,7 @@ async function refresh(){
   COLLS.forEach(c => S[c] = j.data[c] || []);
   S.games = j.data.games || [];
   S.cal = j.data.cal || [];
+  S.seen = j.data.seen || null;
   ["settings"].concat(COLLS).forEach(c => S.loaded[c] = true);
   S.loadedAt = new Date();
   return j.role;
@@ -623,9 +625,17 @@ function renderHome(){
   return `<section class="home">
     <div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
     <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    ${isMom() && S.seen ? `<p class="hseen">${esc(nannyName() || "Au pair")} last opened the app: ${S.seen.nanny ? esc(seenText(S.seen.nanny)) : "not yet"}</p>` : ""}
     <div class="mhead">Menu</div>
     <div class="cgrid">${tiles.join("")}</div>
   </section>`;
+}
+
+/* "Today, 3:12 PM", "Yesterday, 8:05 AM" or "Mon, Oct 19, 4:40 PM" */
+function seenText(iso){
+  const d = new Date(iso), days = Math.round((new Date(ymd(new Date())+"T12:00") - new Date(ymd(d)+"T12:00")) / 864e5);
+  const time = d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"});
+  return (days === 0 ? "Today" : days === 1 ? "Yesterday" : d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})) + ", " + time;
 }
 
 /* ---------- Schedule: the au pair's weekly schedule and daily routine, in English or Portuguese ---------- */
