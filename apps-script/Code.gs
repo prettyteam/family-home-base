@@ -60,6 +60,7 @@ function readAll_(role) {
   COLLS.forEach(c => data[c] = rows_(c));
   data.games = games_();
   try { data.cal = familyCal_(); } catch (e) { console.warn("Skipped Alexandra's calendar: " + e.message); data.cal = []; }
+  try { data.noSchool = Object.keys(noSchoolDays_()).sort(); } catch (e) { data.noSchool = []; }
   data.settings.forEach(s => delete s.feeds); // feed links carry private tokens
   if (role === "nanny") {
     data.settings.forEach(s => { if (s.showPayToNanny !== "yes") { delete s.rate; delete s.weeklyPay; } });
@@ -77,6 +78,7 @@ function readAll_(role) {
       games: data.games.filter(mine),
       cal: data.cal.filter(e => !e.work && mine(e)),
       chores: data.chores.filter(r => r.kid === me),
+      noSchool: data.noSchool,
       shifts: [], todos: []
     };
   }
@@ -255,9 +257,11 @@ function syncCalendarNow_() {
     const s = at(d, ev.start), e = ev.end ? at(d, ev.end) : new Date(s.getTime() + 3600000);
     want.push({ title: title, s: s, e: e, location: ev.location || "", description: ev.notes || "" });
   });
+  const off = noSchoolDays_();
   if (p.getProperty("SKYLIGHT_SHOW_SHIFTS") !== "no") {
     rows_("shifts").forEach(sh => {
       if (!sh.date || !sh.start || !sh.end) return;
+      if (off[sh.date] && SCHOOL_ONLY_RX.test(sh.note || "")) return; // e.g. "Wake the boys up for school" on a day off
       const d = new Date(sh.date + "T00:00:00");
       if (d < start || d >= end) return;
       const s = at(d, sh.start), e = at(d, sh.end);
@@ -286,6 +290,13 @@ function syncCalendarNow_() {
       : cal.createEvent(w.title, w.s, w.e, { location: w.location, description: w.description });
     ev.setTag("fhb", "1");
     Utilities.sleep(150);
+  });
+
+  // School items added by hand (like "Grayson: Pickup from school" every Mon-Wed) come off on days with no school.
+  cal.getEvents(start, end).forEach(ev => {
+    if (ev.getTag("fhb") || !SCHOOL_ITEM_RX.test(ev.getTitle() || "")) return;
+    const day = Utilities.formatDate(ev.isAllDayEvent() ? ev.getAllDayStartDate() : ev.getStartTime(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+    if (off[day]) { ev.deleteEvent(); Utilities.sleep(150); } // removes just that day's copy of a repeating event
   });
 
   p.setProperty("CAL_DIRTY", "0");
@@ -337,10 +348,47 @@ function familyCal_() {
         kid: named.length === 1 ? named[0].id : "all", work: work };
     });
   } catch (e) { console.warn("Couldn't read Alexandra's calendar: " + e.message); }
+  let off = {};
+  try { off = noSchoolDays_(); } catch (e) {}
+  const tz = Session.getScriptTimeZone();
+  list = list.filter(e => !(SCHOOL_ITEM_RX.test(e.title) && off[Utilities.formatDate(new Date(e.start), tz, "yyyy-MM-dd")]));
   list.sort((a, b) => a.start.localeCompare(b.start));
   list = list.slice(0, 150);
   cache.put("familyCal", JSON.stringify(list), 600);
   return list;
+}
+
+/* ---------- Days with no school ---------- */
+
+// The school calendar lives on Alexandra's Google calendar as all-day events ("No School", "NJEA Convention",
+// "Thanksgiving Break", "Spring Recess"...). Half days and "Classes Resume" are school days.
+const NO_SCHOOL_RX = /no school|recess|break|njea|convention/i;
+const SCHOOL_DAY_RX = /single session|early dismissal|half day|resume/i;
+// Calendar items that only matter on a school day.
+const SCHOOL_ITEM_RX = /school|pick ?up|drop ?off|\bbus\b/i;
+// A shift note that is only a school routine (the 6 AM school wake-up).
+const SCHOOL_ONLY_RX = /^\s*wake the boys up for school\.?\s*$/i;
+
+/** {"yyyy-MM-dd": "reason"} for every day off school in the next 60 days. Kept for 6 hours. */
+function noSchoolDays_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get("noSchool");
+  if (hit) return JSON.parse(hit);
+  const tz = Session.getScriptTimeZone(), days = {};
+  const from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 1);
+  const to = new Date(from.getTime() + 61 * 864e5);
+  try {
+    CalendarApp.getDefaultCalendar().getEvents(from, to).forEach(ev => {
+      if (!ev.isAllDayEvent()) return;
+      const text = (ev.getTitle() || "") + " " + (ev.getDescription() || "");
+      if (!NO_SCHOOL_RX.test(text) || SCHOOL_DAY_RX.test(text)) return;
+      for (let d = new Date(ev.getAllDayStartDate()); d < ev.getAllDayEndDate(); d.setDate(d.getDate() + 1)) {
+        const wd = d.getDay();
+        if (wd > 0 && wd < 6) days[Utilities.formatDate(d, tz, "yyyy-MM-dd")] = ev.getTitle() || "No School";
+      }
+    });
+  } catch (e) { console.warn("Couldn't read the no-school days: " + e.message); return {}; }
+  cache.put("noSchool", JSON.stringify(days), 21600);
+  return days;
 }
 
 /* ---------- Team calendars (GameChanger and other iCal links) ---------- */
