@@ -247,6 +247,7 @@ async function refresh(){
   COLLS.forEach(c => S[c] = j.data[c] || []);
   S.games = j.data.games || [];
   S.cal = j.data.cal || [];
+  S.noSchool = j.data.noSchool || [];
   ["settings"].concat(COLLS).forEach(c => S.loaded[c] = true);
   S.loadedAt = new Date();
   return j.role;
@@ -346,8 +347,9 @@ const NANNY_TASKS = [
   {key:"n-skylight", label:"Update the Skylight: appointments, activities, assignments, chores, dinner plan"},
   {key:"n-stock", label:"Check snacks, vitamins and toiletries, and note anything low"}
 ];
+function noSchoolToday(){ const t = new Date(), k = t.getFullYear()+"-"+String(t.getMonth()+1).padStart(2,"0")+"-"+String(t.getDate()).padStart(2,"0"); return (S.noSchool||[]).indexOf(k) >= 0; }
 function nannyTasksPanel(){
-  const d = new Date(), wd = d.getDay(), school = wd > 0 && wd < 6;
+  const d = new Date(), wd = d.getDay(), school = wd > 0 && wd < 6 && !noSchoolToday();
   const list = NANNY_TASKS.filter(t => !t.school || school), n = list.filter(t => choreDone("nanny", d, t.key)).length;
   return `<section class="panel"><h3>${esc(nannyName())}'s daily checklist · ${n} of ${list.length}</h3><ul class="list">${list.map(t => { const on = choreDone("nanny", d, t.key);
     return `<li class="${on?"done":""}"><input type="checkbox" class="check" data-chore="${choreId("nanny",d,t.key)}" ${on?"checked":""} ${readOnly?"disabled":""} aria-label="${esc(t.label)}"><div class="grow"><div class="t">${esc(t.label)}</div></div>${on?`<span class="chip good">Done</span>`:""}</li>`; }).join("")}</ul>
