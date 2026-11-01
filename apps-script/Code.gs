@@ -233,11 +233,12 @@ function syncCalendarNow_() {
   const at = (d, hm) => { const [h, m] = String(hm).split(":").map(Number); const x = new Date(d); x.setHours(h || 0, m || 0, 0, 0); return x; };
 
   // Everything the calendar should hold for the next 4 weeks.
-  const want = [];
+  const want = [], off = noSchoolDays_(), tz = Session.getScriptTimeZone();
   rows_("activities").forEach(a => {
     if (!a.start) return;
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
       if (d.getDay() !== Number(a.day)) continue;
+      if (SCHOOL_DAY_ACTIVITY_RX.test(a.name || "") && off[Utilities.formatDate(d, tz, "yyyy-MM-dd")]) continue; // tutoring only runs on school days
       const s = at(d, a.start), e = a.end ? at(d, a.end) : new Date(s.getTime() + 3600000);
       const notes = [a.driver ? a.driver + " drives" : "", a.bring ? "Bring: " + a.bring : ""].filter(String).join("\n");
       want.push({ title: kidName(a.kid) + ": " + a.name, s: s, e: e, location: a.location || "", description: notes });
@@ -257,7 +258,6 @@ function syncCalendarNow_() {
     const s = at(d, ev.start), e = ev.end ? at(d, ev.end) : new Date(s.getTime() + 3600000);
     want.push({ title: title, s: s, e: e, location: ev.location || "", description: ev.notes || "" });
   });
-  const off = noSchoolDays_();
   if (p.getProperty("SKYLIGHT_SHOW_SHIFTS") !== "no") {
     rows_("shifts").forEach(sh => {
       if (!sh.date || !sh.start || !sh.end) return;
@@ -366,6 +366,8 @@ const NO_SCHOOL_RX = /no school|recess|break|njea|convention/i;
 const SCHOOL_DAY_RX = /single session|early dismissal|half day|resume/i;
 // Calendar items that only matter on a school day.
 const SCHOOL_ITEM_RX = /school|pick ?up|drop ?off|\bbus\b/i;
+// Weekly activities that only happen on school days (Alexandra, 2026-11-01: no tutoring on days off).
+const SCHOOL_DAY_ACTIVITY_RX = /tutor|school/i;
 // A shift note that is only a school routine (the 6 AM school wake-up).
 const SCHOOL_ONLY_RX = /^\s*wake the boys up for school\.?\s*$/i;
 
