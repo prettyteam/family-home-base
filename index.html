@@ -11,7 +11,7 @@
 <meta name="apple-mobile-web-app-title" content="Home Base">
 <meta name="theme-color" content="#f6e9e4">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500&family=Figtree:wght@400;500;600&display=swap">
 <style>
 /* Layout: one column "home binder" with a sticky tab strip; each tab is a page of the binder. */
 :root{
@@ -142,6 +142,27 @@ label.f input,label.f select,label.f textarea{font:inherit;font-size:15px;color:
 body{top:0!important}
 .goog-text-highlight{background:none!important;box-shadow:none!important}
 #gtEl{display:none}
+/* This Week: each boy's quizzes, tests and projects (Taffeta app look: white card, charcoal double frame, square corners) */
+.wk{background:#fff;color:#121212;border:1px solid #2b2a28;outline:1px solid #2b2a28;outline-offset:-6px;border-radius:0;padding:22px 20px 18px;width:100%;max-width:560px;margin:0 auto;text-align:left}
+.wk .wkh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #dcd6cb;padding-bottom:10px;margin-bottom:4px}
+.wk h2{font-family:"Playfair Display",Georgia,serif;font-weight:400;font-size:26px;line-height:1.15;color:#121212;margin:0;text-wrap:balance}
+.wk .wkd{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:#555250;white-space:nowrap}
+.wk .wkk{font-size:12px;letter-spacing:.16em;text-transform:uppercase;font-weight:600;color:#121212;margin:14px 0 2px}
+.wk ul{list-style:none;margin:0;padding:0}
+.wk li{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:start;padding:9px 0;border-top:1px solid #dcd6cb}
+.wk li:first-child{border-top:0}
+.wk .wday{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#555250;padding-top:2px;line-height:1.25}
+.wk .wday b{display:block;font-family:"Playfair Display",Georgia,serif;font-size:20px;letter-spacing:0;color:#121212;font-weight:400}
+.wk .wt{font-weight:500;color:#121212;line-height:1.35}
+.wk .wm{font-size:13px;color:#555250;line-height:1.35}
+.wk .wtag{font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:0;background:#1e4530;color:#fff;white-space:nowrap;margin-top:2px}
+.wk .wtag.proj{background:#423327}
+.wk li.past .wt,.wk li.past .wday b{color:#555250}
+.wk li.past .wtag{background:#fff;color:#555250;outline:1px solid #dcd6cb}
+.wk .wnone{font-size:14px;color:#555250;padding:6px 0}
+.wk .wnext{margin-top:14px;border-top:1px solid #2b2a28;padding-top:10px}
+.wk .wnext .wkk{margin-top:0}
+.wk .wfoot{font-size:12px;color:#555250;margin:12px 0 0}
 </style>
 </head>
 <body>
@@ -453,6 +474,7 @@ function renderSchool(){
   const lastSync = S.settings && S.settings.lastSync;
   return `<div class="row"><div class="kids" role="group" aria-label="Show"><button data-kid="all" aria-pressed="${kidFilter==="all"}">All kids</button>${ks.map(k=>`<button data-kid="${k.id}" aria-pressed="${kidFilter===k.id}"><span class="dot" style="margin:0;background:${kidColor(k.id)}"></span>${esc(k.name)}</button>`).join("")}</div>
   ${!readOnly?`<button class="btn primary" id="addAssign">Add assignment</button>`:""}</div>
+  ${thisWeekCard(kidFilter === "all" ? "" : kidFilter)}
   <p class="note">${lastSync?`Last updated from Google Classroom and the parent portal: ${esc(lastSync)}.`:"Assignments and grades come in from Google Classroom and the parent portal every day at 2:15 PM. You can also add one by hand."}</p>
   <div class="grid2">
     <section class="panel"><h3>Upcoming &amp; overdue</h3>${open.length?`<ul class="list">${open.map(assignLi).join("")}</ul>`:`<p class="empty">No open assignments.</p>`}
@@ -462,11 +484,55 @@ function renderSchool(){
     <p class="note" style="margin-top:8px">Green is 90 and up, amber is 70 to 79, red is under 70.</p></section>
   </div>`;
 }
+/* ---------- This Week: quizzes, tests and projects for each boy ----------
+   An assignment counts when the school check sets kind to "test", "quiz" or "project",
+   or when its title says test, quiz, exam or project (practice work and study guides don't count).
+   kind "other" keeps an item off this list. Only this week (Monday to Sunday) shows, so last
+   week's items drop off on their own. On Saturday and Sunday it shows the week ahead. */
+function bigKind(a){
+  const k = String(a.kind || "").toLowerCase();
+  if(k === "test" || k === "quiz" || k === "project") return k;
+  if(k) return "";
+  const t = String(a.title || "").replace(/^MISS(ING|ED):\s*/i, "");
+  if(/practice|study guide|review flashcards|vocab(ulary)? homework/i.test(t)) return "";
+  if(/\bproject\b|\bpresentation\b/i.test(t)) return "project";
+  if(/\btest\b|\bexam\b|\bbenchmark\b|\bassessment\b/i.test(t)) return "test";
+  if(/\bquiz\b/i.test(t)) return "quiz";
+  return "";
+}
+const KIND_LABEL = {test:"Test", quiz:"Quiz", project:"Project"};
+function bigWeek(now){
+  const wd = now.getDay(), weekend = wd === 6 || wd === 0;
+  const start = weekend ? mondayOf(addDays(now, wd === 6 ? 2 : 1)) : mondayOf(now);
+  return {start, end: addDays(start, 6), next: addDays(start, 7), nextEnd: addDays(start, 13), weekend};
+}
+function bigItems(kid, a, b){
+  const A = ymd(a), B = ymd(b);
+  return S.assignments.filter(x => (!kid || x.kid === kid) && x.due && x.due >= A && x.due <= B && bigKind(x))
+    .sort((x,y) => (x.due+(x.cls||"")).localeCompare(y.due+(y.cls||"")));
+}
+function thisWeekCard(onlyKid){
+  const now = new Date(), w = bigWeek(now), today = ymd(now);
+  const ks = onlyKid ? [kidById(onlyKid) || {id:onlyKid, name:""}] : kids();
+  const short = d => d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+  const row = x => { const d = parseYmd(x.due), k = bigKind(x), past = x.due < today || (x.done && x.due <= today);
+    const note = x.notes && /grade|graded|bring|study|chapter|unit|pages?|cover/i.test(x.notes) ? x.notes.replace(/^(test|quiz|project)( category)?\.\s*/i,"") : "";
+    return `<li class="${past?"past":""}"><div class="wday">${DAYS[d.getDay()]}<b>${d.getDate()}</b></div><div><div class="wt">${esc(x.title.replace(/^MISS(ING|ED):\s*/i,""))}</div><div class="wm">${esc(x.cls||"")}${note?" · "+esc(note):""}</div></div><span class="wtag ${k==="project"?"proj":""}">${past?"Done":KIND_LABEL[k]}</span></li>`; };
+  const block = (k, list, none) => `${onlyKid?"":`<div class="wkk">${esc(k.name)}</div>`}${list.length?`<ul>${list.map(row).join("")}</ul>`:`<p class="wnone">${none}</p>`}`;
+  const nextList = ks.map(k => [k, bigItems(k.id, w.next, w.nextEnd)]).filter(([,l]) => l.length);
+  return `<section class="wk" aria-label="Quizzes, tests and projects this week">
+    <div class="wkh"><h2>${w.weekend?"The Week Ahead":"This Week"}</h2><span class="wkd">${short(w.start)} – ${short(w.end)}</span></div>
+    ${ks.map(k => block(k, bigItems(k.id, w.start, w.end), "No quizzes, tests or projects this week.")).join("")}
+    ${nextList.length?`<div class="wnext"><div class="wkk">Coming Up Next Week</div><ul>${nextList.map(([k,l]) => l.map(x => row(Object.assign({}, x, {cls: (onlyKid?"":k.name+" · ")+(x.cls||"")}))).join("")).join("")}</ul></div>`:""}
+    <p class="wfoot">Updates with every school check. Last week's items drop off on their own.</p>
+  </section>`;
+}
 function assignForm(a){
   if(!kids().length) return toast("Add your kids in Family setup first.");
   openForm(a?"Edit assignment":"Add assignment", [
     {key:"kid",label:"Child",type:"select",options:kidOptions(false)},{key:"title",label:"Assignment",req:true,ph:"e.g. Chapter 4 reading log"},
     {key:"cls",label:"Class",ph:"e.g. ELA"},{key:"due",label:"Due",type:"date",req:true},
+    {key:"kind",label:"Type",type:"select",options:[["","Homework or classwork"],["quiz","Quiz"],["test","Test"],["project","Project"]],def:""},
     {key:"source",label:"Where it came from",type:"select",options:[["Google Classroom","Google Classroom"],["Genesis portal","Genesis portal"],["Added by hand","Added by hand"]],def:"Added by hand"},
     {key:"notes",label:"Notes",ph:"e.g. Needs poster board"}], a || {kid: kidFilter!=="all"?kidFilter:(kids()[0]||{}).id}, v => {
       if(!v.title || !v.due) return "Add a title and a due date.";
@@ -625,6 +691,7 @@ function renderHome(){
   return `<section class="home">
     <div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
     <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    ${kids().length ? thisWeekCard() : ""}
     <div class="mhead">Menu</div>
     <div class="cgrid">${tiles.join("")}</div>
   </section>`;
@@ -704,7 +771,7 @@ function renderKid(){
   const done = S.assignments.filter(a => a.done).sort((a,b)=>(b.due||"").localeCompare(a.due||"")).slice(0,10);
   const li = a => { const [lab, cls] = dueLabel(a.due);
     return `<li class="${a.done?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${a.done?"checked":""} aria-label="Mark ${esc(a.title)} done"><div class="grow"><div class="t">${esc(a.title)}</div><div class="meta">${esc(a.cls||"")}${a.notes?" · "+esc(a.notes):""}</div></div><span class="chip ${a.done?"good":cls}">${a.done?"Done":lab}</span></li>`; };
-  return tabs + `<section class="panel"><div class="row"><h3 style="margin:0">To do · ${open.length}</h3><a class="btn small" href="https://classroom.google.com" target="_blank" rel="noopener">Open Google Classroom</a></div>
+  return tabs + thisWeekCard(me.id) + `<section class="panel"><div class="row"><h3 style="margin:0">To do · ${open.length}</h3><a class="btn small" href="https://classroom.google.com" target="_blank" rel="noopener">Open Google Classroom</a></div>
     ${open.length?`<ul class="list">${open.map(li).join("")}</ul>`:`<p class="empty">All done. Nice work, ${esc(me.name)}!</p>`}
     <p class="note" style="margin-top:10px">Turn it in on Google Classroom first, then check it off here.</p></section>
     ${done.length?`<section class="panel"><h3>Finished</h3><ul class="list">${done.map(li).join("")}</ul></section>`:""}`;
