@@ -89,6 +89,16 @@ body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bot
 .home .hsub button,.home .hsub a{background:none;border:0;color:var(--ink);font-family:var(--display);font-size:18px;line-height:1.2;padding:6px 12px 1px;cursor:pointer;text-decoration:none}
 .home .hsub button:hover,.home .hsub a:hover{text-decoration:underline;text-underline-offset:4px}
 .list li.pli{flex-wrap:wrap}
+details.fact{border-top:1px solid var(--line)}
+details.fact:first-of-type{border-top:0}
+details.fact summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 2px;font-family:var(--display);font-size:19px;color:var(--ink)}
+details.fact summary::-webkit-details-marker{display:none}
+details.fact summary::after{content:"+";font-family:var(--body);font-size:20px;color:var(--muted)}
+details.fact[open] summary::after{content:"–"}
+.fbody{padding:0 2px 14px}
+.fsub{font-weight:600;margin:10px 0 2px}
+.fl{margin:4px 0;padding-left:20px;display:grid;gap:5px;line-height:1.45}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .pli .grow{min-width:150px}
 .ctel{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:flex-start}
 .ctel .btn,.list a.btn{white-space:nowrap;text-decoration:none}
@@ -540,9 +550,9 @@ function thisWeekCard(onlyKid){
   const nextList = ks.map(k => [k, bigItems(k.id, w.next, w.nextEnd)]).filter(([,l]) => l.length);
   return `<section class="wk" aria-label="Quizzes, tests and projects this week">
     <div class="wkh"><h2>${w.weekend?"The Week Ahead":"This Week"}</h2><span class="wkd">${short(w.start)} – ${short(w.end)}</span></div>
-    ${ks.map(k => block(k, bigItems(k.id, w.start, w.end), "No quizzes, tests or projects this week.")).join("")}
+    ${ks.map(k => block(k, bigItems(k.id, w.weekend ? w.start : now, w.end), w.weekend ? "No quizzes, tests or projects this week." : "Nothing else this week.")).join("")}
     ${nextList.length?`<div class="wnext"><div class="wkk">Coming Up Next Week</div><ul>${nextList.map(([k,l]) => l.map(x => row(Object.assign({}, x, {cls: (onlyKid?"":k.name+" · ")+(x.cls||"")}))).join("")).join("")}</ul></div>`:""}
-    <p class="wfoot">Updates with every school check. Last week's items drop off on their own.</p>
+    <p class="wfoot">Shows today and what's coming. Past days drop off on their own.</p>
   </section>`;
 }
 function assignForm(a){
@@ -637,11 +647,37 @@ function renderTodos(){
 function notesHtml(h){
   return h.split(/\n\s*\n/).map(b => `<div class="${/^\s*[^\n]*(LOGIN|CODE|PASSWORD)/i.test(b)?"notranslate":""}" style="margin-bottom:1em">${esc(b)}</div>`).join("");
 }
+/* Family Facts: each ALL-CAPS heading in the notes becomes a tap-to-open section with short bullets.
+   Phone numbers, takeout and logins live on Contacts & Logins, so they are left out here. */
+const ON_CONTACTS = /^(CONTACTS|FAMILY & OTHER CONTACTS|TAKEOUT FAVORITES|MEDICAL NOTES|LOGINS & CODES)$/;
+const isHead = l => /^[A-Z][A-Z0-9'’&\/,. -]{3,}(\s*\(.*\))?$/.test(l) && /[A-Z]{3}/.test(l.replace(/\(.*\)/,""));
+function factSections(){
+  const out = []; let cur = null;
+  String((S.settings && S.settings.houseNotes) || "").split("\n").forEach(raw => { const l = raw.trim(); if(!l) return;
+    if(isHead(l)){ cur = {title:l, lines:[]}; out.push(cur); return; }
+    if(!cur){ cur = {title:"NOTES", lines:[]}; out.push(cur); }
+    cur.lines.push(l); });
+  return out;
+}
+const titleCase = t => t.replace(/\(.*?\)/g, m => m.toLowerCase()).toLowerCase().replace(/(^|[\s\/&-])([a-z])/g, (m,a,b) => a + b.toUpperCase()).replace(/'S\b/g,"'s");
+function factBody(lines){
+  let html = "", open = false;
+  const close = () => { if(open){ html += "</ul>"; open = false; } };
+  lines.forEach(l => {
+    const bullet = /^[-•]\s*/.test(l), txt = l.replace(/^[-•]\s*/,"");
+    if(!bullet && /^[^.:]{2,40}:?$/.test(txt) && !/\d/.test(txt)){ close(); html += `<div class="fsub">${esc(txt.replace(/:$/,""))}</div>`; return; }
+    if(!open){ html += `<ul class="fl">`; open = true; }
+    html += `<li>${esc(txt)}</li>`; });
+  close(); return html;
+}
+let factOpen = "";
 function renderNotes(){
-  const h = (S.settings && S.settings.houseNotes) || "";
-  return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3><div class="row" style="gap:6px"><button class="btn small notranslate" data-translate>Translate</button>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div></div>
-    ${h?`<div style="white-space:pre-wrap;max-width:65ch">${notesHtml(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else ${esc(nannyName())} should always have handy.</p>`}
-</section>`;
+  const secs = factSections().filter(x => !ON_CONTACTS.test(x.title));
+  return `<section class="panel"><div class="row"><h3 style="margin:0">Family Facts</h3>${isMom()&&!readOnly?`<button class="btn small" id="editHouse">Edit</button>`:""}</div>
+    ${secs.length ? secs.map(x => `<details class="fact" ${factOpen===x.title?"open":""} data-fact="${esc(x.title)}"><summary>${esc(titleCase(x.title))}</summary><div class="fbody">${factBody(x.lines)}</div></details>`).join("")
+      : `<p class="empty">Bedtimes, allergies, screen-time rules and anything else ${esc(nannyName())} should always have handy.</p>`}
+    <p class="note" style="margin-top:12px">Phone numbers, takeout and logins are on <button type="button" class="linkbtn" data-go="contacts">Contacts &amp; Logins</button>.</p>
+  </section>`;
 }
 /* ---------- Contacts & Logins: read from the Family Facts notes (CONTACTS, FAMILY & OTHER CONTACTS, TAKEOUT FAVORITES,
    MEDICAL NOTES, LOGINS & CODES), so Alexandra keeps everything in one place. No personal details live in this code. ---------- */
@@ -756,7 +792,10 @@ function render(){
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab===tab)));
   const m = $("#main");
   if(!db){ renderLogin(); return; }
-  $("nav.tabs").hidden = !!kidMode;
+  /* The au pair gets around from her homepage squares (and Back), so no tab strip, no repeated date and no Translate button up top. */
+  $("nav.tabs").hidden = !!kidMode || !isMom();
+  $("#todayLine").hidden = !isMom() && !kidMode;
+  document.querySelector("header [data-translate]").hidden = !isMom() && !kidMode;
   if(kidMode){ document.documentElement.dataset.kid = kidMode; $("h1").textContent = (kidById(kidMode)||{}).name ? kidById(kidMode).name + "'s Home Base" : "My Home Base"; m.innerHTML = renderKid(); bind(); return; }
   const ready = ["settings","shifts","assignments","grades","activities","todos"].every(k=>S.loaded[k]);
   if(!ready){ m.innerHTML = `<div class="panel"><p class="empty">Loading the family schedule…</p></div>`; return; }
@@ -796,9 +835,9 @@ function nannyHome(t, s, openTodos, due){
   return `<section class="home">
     <div class="hhi"><span>Hello,</span><span class="hname">${esc(nannyName())}</span></div>
     <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
-    ${kids().length ? thisWeekCard() : ""}
     <div class="mhead">Menu</div>
     <div class="cgrid">${cells.join("")}</div>
+    ${kids().length ? `<div style="margin-top:18px;width:100%">${thisWeekCard()}</div>` : ""}
   </section>`;
 }
 function renderHome(){
@@ -932,6 +971,7 @@ function bind(){
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => goTab(b.dataset.go));
+  document.querySelectorAll("details.fact").forEach(d => d.ontoggle = () => { if(d.open){ factOpen = d.dataset.fact; document.querySelectorAll("details.fact").forEach(o => { if(o !== d) o.open = false; }); } });
   document.querySelectorAll("[data-reveal]").forEach(b => b.onclick = () => { const v = b.previousElementSibling, show = b.textContent === "Show";
     v.textContent = show ? v.dataset.val : "••••••••"; b.textContent = show ? "Hide" : "Show"; });
   document.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch(e){ b.textContent = "Couldn't copy"; }
