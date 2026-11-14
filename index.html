@@ -315,6 +315,8 @@ async function refresh(){
   /* The au pair's schedule pages live in the private Sheet (settings rows "schedule-en" and "schedule-pt"). */
   S.sched = {}; (j.data.settings || []).forEach(x => { const m = /^schedule-(en|pt)$/.exec(x._id); if(m && x.html) S.sched[m[1]] = x; });
   COLLS.forEach(c => S[c] = j.data[c] || []);
+  /* The grocery list needs the newer Google script. Until it's updated, the square stays hidden. */
+  S.grocOn = Array.isArray(j.data.groceries);
   S.games = j.data.games || [];
   S.cal = j.data.cal || [];
   S.noSchool = j.data.noSchool || [];
@@ -899,12 +901,12 @@ function nannyHome(t, s, openTodos, due){
     {k:"hours", l:nannyName(), sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","Hours & Pay","Shifts, clock-ins and pay"],["schedule","Schedule","Weekly plan & daily routine"]]},
     {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
     {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@exp","Kids' Expenses","Shared costs with John"],["@cal","Family Calendar","Opens Google Calendar"],["@setup","Family setup","Names, pay and settings"]]},
-    {k:"groc", go:"groceries", l:"Grocery & Supply Orders", sub: grocSub()}] : [
+    ...(S.grocOn ? [{k:"groc", go:"groceries", l:"Grocery & Supply Orders", sub: grocSub()}] : [])] : [
     {k:"day", l:"My Day", sub: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "Off today", items:[["today","Today","Clock in and your checklist"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
     {k:"hours", l:"My Hours", sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","My Hours","Clock in, out and fix times"],["schedule","My Schedule","Weekly plan & daily routine"]]},
     {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
     {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]},
-    {k:"groc", go:"groceries", l:"Grocery & Supply Orders", sub: grocSub()}];
+    ...(S.grocOn ? [{k:"groc", go:"groceries", l:"Grocery & Supply Orders", sub: grocSub()}] : [])];
   const link = ([k,l,sub]) => (k === "@cal" ? `<a href="https://calendar.google.com" target="_blank" rel="noopener">${esc(l)}</a>`
     : k === "@exp" ? `<a href="kids-expenses/">${esc(l)}</a>`
     : k === "@setup" ? (readOnly ? "" : `<button type="button" id="setupBtn">${esc(l)}</button>`)
@@ -996,7 +998,7 @@ function kidHome(me){
       ${sq("home","Home tasks", list.length ? doneN+" of "+list.length+" done today" : "")}
       ${sq("cal","My calendar", next ? (next.start ? fmtT(next.start)+" · " : "")+next.name : "Nothing else today")}
       <a href="https://classroom.google.com" target="_blank" rel="noopener"><span>Google Classroom</span><small>Turn in work</small></a>
-      ${sq("groc","Grocery & Supply Orders", grocSub()).replace("<button ", '<button class="wide" ')}
+      ${S.grocOn ? sq("groc","Grocery & Supply Orders", grocSub()).replace("<button ", '<button class="wide" ') : ""}
     </div>
   </section>`;
 }
