@@ -88,6 +88,16 @@ body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bot
 .home .hsub>div{display:flex;flex-direction:column;align-items:center}
 .home .hsub button,.home .hsub a{background:none;border:0;color:var(--ink);font-family:var(--display);font-size:18px;line-height:1.2;padding:6px 12px 1px;cursor:pointer;text-decoration:none}
 .home .hsub button:hover,.home .hsub a:hover{text-decoration:underline;text-underline-offset:4px}
+.list li.pli{flex-wrap:wrap}
+.pli .grow{min-width:150px}
+.ctel{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-items:flex-start}
+.ctel .btn,.list a.btn{white-space:nowrap;text-decoration:none}
+.list a.t{color:var(--ink);text-underline-offset:3px}
+.cemerg{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--accent-soft)}
+.lrow{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.lrow .meta{min-width:64px}
+.lval{font-family:ui-monospace,Menlo,monospace;font-size:14px;word-break:break-all;flex:1 1 120px}
+.panel .wkk{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
 .home .hsub small{font-size:11px;color:var(--muted);letter-spacing:.02em}
 .schedframe{width:100%;min-height:600px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -204,6 +214,7 @@ body{top:0!important}
     <button role="tab" data-tab="activities" aria-selected="false">Activities</button>
     <button role="tab" data-tab="todos" aria-selected="false">To-dos</button>
     <button role="tab" data-tab="notes" aria-selected="false">Family Facts</button>
+    <button role="tab" data-tab="contacts" aria-selected="false">Contacts &amp; Logins</button>
   </nav>
 
   <main id="main">
@@ -239,7 +250,7 @@ const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], 
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "home", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
-if(/^#(home|today|hours|schedule|school|activities|todos|notes)$/.test(location.hash)) tab = location.hash.slice(1);
+if(/^#(home|today|hours|schedule|school|activities|todos|notes|contacts)$/.test(location.hash)) tab = location.hash.slice(1);
 /* Back: the page before, then Home, then Pretty Life when she opened this from there (?from=life). The title goes Home. */
 const LIFE = "https://prettyteam.taffetadesign.com/briefing/";
 let fromLife = false;
@@ -632,6 +643,83 @@ function renderNotes(){
     ${h?`<div style="white-space:pre-wrap;max-width:65ch">${notesHtml(h)}</div>`:`<p class="empty">Bedtimes, allergies, screen-time rules, pickup contacts and anything else ${esc(nannyName())} should always have handy.</p>`}
 </section>`;
 }
+/* ---------- Contacts & Logins: read from the Family Facts notes (CONTACTS, FAMILY & OTHER CONTACTS, TAKEOUT FAVORITES,
+   MEDICAL NOTES, LOGINS & CODES), so Alexandra keeps everything in one place. No personal details live in this code. ---------- */
+function noteSections(){
+  const out = {}; let cur = "";
+  String((S.settings && S.settings.houseNotes) || "").split("\n").forEach(raw => { const l = raw.trim(); if(!l) return;
+    if(/^[A-Z0-9][A-Z0-9 &'()\/,.-]{2,}$/.test(l) && /[A-Z]{3}/.test(l)){ cur = l; out[cur] = out[cur] || []; return; }
+    if(cur) out[cur].push(l.replace(/^-\s*/,"")); });
+  return out;
+}
+const PHONE_SRC = "(\\(?\\d{3}\\)?[\\s.-]*\\d{3}[\\s.-]*\\d{4})";
+function parsePeople(lines){
+  const list = [];
+  lines.forEach(l => l.split(/(?<=\d)\.\s+(?=[A-Z][^:]*:)/).forEach(e => {
+    const i = e.indexOf(":");
+    let head = i >= 0 ? e.slice(0,i) : e, tail = i >= 0 ? e.slice(i+1) : "";
+    if(i < 0){ const m = new RegExp(PHONE_SRC).exec(e); if(!m){ list.push({name:"", role:"", phones:[], extra:e}); return; } head = e.slice(0, m.index); tail = e.slice(m.index); }
+    const cut = head.search(/[,(]/), name = (cut >= 0 ? head.slice(0,cut) : head).trim();
+    const role = cut >= 0 ? head.slice(cut).replace(/^[,\s]+/,"").replace(/[()]/g,"").trim() : "";
+    const re = new RegExp("(?:\\b(cell|work|home|office|[A-Z][a-z]+)\\s+)?" + PHONE_SRC, "g"), phones = []; let m;
+    while((m = re.exec(tail))) phones.push({label: m[1] || "", num: m[2]});
+    const extra = tail.replace(re, "").replace(/\s*,(\s*,)+/g,",").replace(/^[\s,.;]+|[\s,.;]+$/g,"");
+    list.push({name, role, phones, extra});
+  }));
+  return list;
+}
+const telHref = n => "tel:" + n.replace(/[^\d]/g,"");
+function personLi(p){
+  if(!p.name) return `<li><div class="grow"><div class="meta">Also good: ${esc(p.extra)}</div></div></li>`;
+  return `<li class="pli"><div class="grow"><div class="t">${esc(p.name)}</div>${p.role?`<div class="meta">${esc(p.role)}</div>`:""}${p.extra?`<div class="meta">${esc(p.extra)}</div>`:""}</div>
+    <div class="ctel">${p.phones.map(ph=>`<a class="btn small" href="${telHref(ph.num)}">${ph.label?esc(ph.label)+" · ":""}<span class="notranslate">${esc(ph.num)}</span></a>`).join("")}</div></li>`;
+}
+/* Public websites only (the school's own pages and the stores). */
+const LOGIN_SITES = [
+  [/parent portal/i, "https://www.fridayparentportal.com/hammonton", "Grades and upcoming assignments for this marking period."],
+  [/classroom/i, "https://classroom.google.com", "Daily schoolwork the teachers assign. Log in with the boy's school email."],
+  [/walmart/i, "https://www.walmart.com", "Groceries and same-day delivery."],
+  [/doordash/i, "https://www.doordash.com", "Takeout delivery."],
+  [/netflix/i, "https://www.netflix.com", ""], [/hulu/i, "https://www.hulu.com", ""], [/disney/i, "https://www.disneyplus.com", ""],
+  [/gamechanger/i, "https://web.gc.com", "Game schedules and scores."]];
+const SCHOOL_LINKS = [
+  ["Hammonton Middle School website", "https://hms.hammontonschools.org/", "Calendar, news and teacher pages."],
+  ["Parent Portal", "https://www.fridayparentportal.com/hammonton", "Grades and upcoming assignments."],
+  ["Google Classroom", "https://classroom.google.com", "The boys' daily work from teachers."],
+  ["How to use Google Classroom (slides)", "https://hms.hammontonschools.org/pdf/Parents_Guide_to_Google_Classroom_Slides.pdf", "The school's guide for parents."],
+  ["Google Classroom parent guide", "https://hms.hammontonschools.org/pdf/Google_Classroom_Parent_Guide.pdf", "Step by step, from the school."]];
+function loginLi(l){
+  const i = l.indexOf(":"); if(i < 0) return "";
+  const label = l.slice(0,i).trim(), val = l.slice(i+1).trim(), parts = val.split(/\s+\/\s+/);
+  const site = LOGIN_SITES.find(([re]) => re.test(label)) || [null,"",""];
+  const field = (k, v, secret) => `<div class="lrow"><span class="meta">${k}</span><span class="lval notranslate" data-val="${esc(v)}">${secret?"••••••••":esc(v)}</span>${secret?`<button type="button" class="btn small" data-reveal>Show</button>`:""}<button type="button" class="btn small" data-copy="${esc(v)}">Copy</button></div>`;
+  const wifi = /wi-?fi/i.test(label);
+  return `<li><div class="grow"><div class="row" style="justify-content:flex-start;gap:8px"><span class="t">${esc(label)}</span>${site[1]?`<a class="btn small" href="${site[1]}" target="_blank" rel="noopener">Open website</a>`:""}</div>${site[2]?`<div class="meta">${esc(site[2])}</div>`:""}
+    ${parts.length > 1 ? field(wifi?"Network":"Login", parts[0], false) + field("Password", parts.slice(1).join(" / "), true) : field("Code", val, true)}</div></li>`;
+}
+function renderContacts(){
+  const sec = noteSections(), people = parsePeople((sec["FAMILY & OTHER CONTACTS"]||[]).concat(sec["CONTACTS"]||[]));
+  const med = p => /pediatric|ortho|chiro|behavioral|therap|specialist|dr\.|doctor|dental|dentist/i.test(p.name+" "+p.role);
+  const help = p => /fix|plumb|electric|repair/i.test(p.role);
+  const nb = p => /neighbor|houses down|\bfriend|parents/i.test(p.role) || /^Jacob$/i.test(p.name);
+  const groups = [["Family", people.filter(p => !med(p) && !help(p) && !nb(p))], ["Neighbors & friends", people.filter(p => nb(p) && !med(p))],
+    ["Doctors & care", people.filter(med)], ["Help around the house", people.filter(p => help(p) && !med(p))]].filter(g => g[1].length);
+  const logins = sec["LOGINS & CODES"] || [];
+  const lg = re => logins.filter(l => re.test(l.split(":")[0]));
+  const school = lg(/portal|classroom/i), food = lg(/walmart|doordash|instacart|amazon|grubhub|uber/i), tv = lg(/netflix|hulu|disney|gamechanger|spotify|youtube|peacock/i);
+  const home = logins.filter(l => !school.includes(l) && !food.includes(l) && !tv.includes(l));
+  const takeout = parsePeople(sec["TAKEOUT FAVORITES"] || []);
+  const panel = (title, inner, note) => `<section class="panel"><h3>${esc(title)}</h3>${note?`<p class="note" style="margin:0 0 6px">${note}</p>`:""}<ul class="list">${inner}</ul></section>`;
+  const mom = people.find(p => /^mom$/i.test(p.name)), momTel = mom && mom.phones[0];
+  return `<section class="panel cemerg"><div><b>Emergency:</b> call 911 first, then Mom.</div><div class="ctel"><a class="btn small primary" href="tel:911">Call 911</a>${momTel?`<a class="btn small" href="${telHref(momTel.num)}">Call Mom</a>`:""}</div></section>
+  ${groups.map(([t,l]) => panel(t, l.map(personLi).join(""), t==="Doctors & care" && (sec["MEDICAL NOTES"]||[]).length ? esc(sec["MEDICAL NOTES"].join(" ")) : "")).join("")}
+  <section class="panel"><h3>School websites &amp; logins</h3><p class="note" style="margin:0 0 6px">Check the Parent Portal and Google Classroom every day before the boys get home.</p>
+    <ul class="list">${SCHOOL_LINKS.map(([t,u,d]) => `<li><div class="grow"><a class="t" href="${u}" target="_blank" rel="noopener">${esc(t)}</a><div class="meta">${esc(d)}</div></div></li>`).join("")}${school.map(loginLi).join("")}</ul></section>
+  ${takeout.length || food.length ? `<section class="panel"><h3>Dinner &amp; groceries</h3>${food.length?`<ul class="list">${food.map(loginLi).join("")}</ul>`:""}${takeout.length?`<div class="wkk" style="margin-top:14px">Takeout favorites</div><ul class="list">${takeout.map(personLi).join("")}</ul>`:""}</section>` : ""}
+  ${home.length ? panel("Home codes", home.map(loginLi).join(""), "Never share the door or garage code.") : ""}
+  ${tv.length ? panel("TV & sports apps", tv.map(loginLi).join(""), "") : ""}
+  ${isMom()?`<p class="note">To change anything here, open Family Facts and tap Edit. This page reads the CONTACTS, FAMILY &amp; OTHER CONTACTS, TAKEOUT FAVORITES and LOGINS &amp; CODES parts.</p>`:""}`;
+}
 function todoForm(x){
   openForm(x?"Edit to-do":"Add to-do", [{key:"text",label:"To-do",req:true,ph:"e.g. Sign Ava's field trip form"},{key:"who",label:"For",type:"select",options:[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]]},
     {key:"kid",label:"About",type:"select",options:kidOptions(true)},{key:"due",label:"By (optional)",type:"date"},
@@ -679,13 +767,13 @@ function render(){
 
   if(tab === "home"){ m.innerHTML = top + renderHome(); bind(); return; }
   if(tab === "schedule"){ m.innerHTML = top + renderSchedule(); bind(); fitSched(); return; }
-  const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes}[tab]();
+  const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes, contacts:renderContacts}[tab]();
   m.innerHTML = top + body;
   bind();
 }
 
 /* ---------- Home: a greeting, then the menu squares (like the salon apps' homepages) ---------- */
-const HOME_TILES = [["today","Today"],["hours","Au Pair Hours"],["schedule","Schedule"],["school","School"],["activities","Activities"],["todos","To-dos"],["notes","Family Facts"]];
+const HOME_TILES = [["today","Today"],["hours","Au Pair Hours"],["schedule","Schedule"],["school","School"],["activities","Activities"],["todos","To-dos"],["notes","Family Facts"],["contacts","Contacts & Logins"]];
 /* The au pair's homepage: four category squares (like the Weddings app). Tap one and its pages open in a list right under that row. */
 let homeCat = "";
 function nannyHome(t, s, openTodos, due){
@@ -694,7 +782,7 @@ function nannyHome(t, s, openTodos, due){
     {k:"day", l:"My Day", sub: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "Off today", items:[["today","Today","Clock in and your checklist"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
     {k:"hours", l:"My Hours", sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","My Hours","Clock in, out and fix times"],["schedule","My Schedule","Weekly plan & daily routine"]]},
     {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
-    {k:"house", l:"The House", sub: "", items:[["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]}];
+    {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]}];
   const link = ([k,l,sub]) => (k === "@cal"
     ? `<a href="https://calendar.google.com" target="_blank" rel="noopener">${esc(l)}</a>`
     : `<button type="button" data-go="${k}">${esc(l)}</button>`) + (sub?`<small>${esc(sub)}</small>`:"");
@@ -844,6 +932,10 @@ function bind(){
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => goTab(b.dataset.go));
+  document.querySelectorAll("[data-reveal]").forEach(b => b.onclick = () => { const v = b.previousElementSibling, show = b.textContent === "Show";
+    v.textContent = show ? v.dataset.val : "••••••••"; b.textContent = show ? "Hide" : "Show"; });
+  document.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch(e){ b.textContent = "Couldn't copy"; }
+    setTimeout(() => { if(b.isConnected) b.textContent = "Copy"; }, 2000); });
   document.querySelectorAll("[data-hcat]").forEach(b => b.onclick = () => { homeCat = homeCat === b.dataset.hcat ? "" : b.dataset.hcat; render(); });
   document.querySelectorAll("[data-schedlang]").forEach(b => b.onclick = () => { schedLang = b.dataset.schedlang; try{ localStorage.setItem("fhb-sched", schedLang); }catch(e){} render(); });
   on("#schedCopy", async () => { const f = $("#schedFrame"), b = $("#schedCopy"); let txt = "";
