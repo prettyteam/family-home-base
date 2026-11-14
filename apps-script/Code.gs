@@ -8,8 +8,8 @@
  *   KID_PIN_<kid id>  a child's own view: his assignments (check off only) and his calendar
  */
 const SHEET_ID = "1TFjO180dVUddqTtr2cAeDgspTEejo0u8aYnfrUS_Kh0"; // "Family Home Base Data" in Alexandra's Drive
-const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos", "events", "chores"];
-const NANNY_WRITES = { shifts: ["set", "update"], assignments: ["set", "update"], todos: ["set", "update", "delete"], chores: ["set"] };
+const COLLS = ["settings", "shifts", "assignments", "grades", "activities", "todos", "events", "chores", "groceries"];
+const NANNY_WRITES = { shifts: ["set", "update"], assignments: ["set", "update"], todos: ["set", "update", "delete"], chores: ["set"], groceries: ["set", "update", "delete"] };
 
 function out_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -52,6 +52,8 @@ function purgeOldTodos_() {
   // Daily home-task check-offs are kept for 5 weeks.
   const old = Utilities.formatDate(new Date(Date.now() - 35 * 864e5), Session.getScriptTimeZone(), "yyyy-MM-dd");
   rows_("chores").filter(c => c.date && c.date < old).forEach(c => write_("delete", "chores", c._id));
+  // Grocery items that were checked off more than a week ago (the app hides them after a day). Usual items stay.
+  rows_("groceries").filter(g => !g.usual && g.got && g.gotAt && new Date(g.gotAt).getTime() < cutoff).forEach(g => write_("delete", "groceries", g._id));
 }
 
 function readAll_(role) {
@@ -78,6 +80,7 @@ function readAll_(role) {
       games: data.games.filter(mine),
       cal: data.cal.filter(e => !e.work && mine(e)),
       chores: data.chores.filter(r => r.kid === me),
+      groceries: data.groceries.filter(g => g.store !== "buyrite"),
       noSchool: data.noSchool,
       shifts: [], todos: []
     };
@@ -116,6 +119,11 @@ function choreCheck_(id, data, onlyKid) {
   return { kid: m[1], date: m[2], task: m[3], done: done, doneAt: done ? new Date().toISOString() : "" };
 }
 
+function kidName_(id) {
+  const kids = ((rows_("settings").filter(r => r._id === "main")[0] || {}).kids || []);
+  return (kids.filter(k => k.id === id)[0] || {}).name || "";
+}
+
 function doGet() {
   return out_({ ok: true, app: "Family Home Base" });
 }
@@ -131,6 +139,21 @@ function doPost(e) {
     if (coll === "chores") {
       if (op !== "set") throw new Error("Ask Mom to change that.");
       body.data = choreCheck_(body.id, body.data, role.indexOf("kid:") === 0 ? role.slice(4) : "");
+    }
+    else if (coll === "groceries") {
+      // Everyone shares the grocery list. Only Alexandra can change the usual items.
+      // Kids add items under their own name, check items off, and take off only what they added.
+      const rec = body.id ? rows_("groceries").filter(r => r._id === String(body.id))[0] : null;
+      const d = body.data || {};
+      if (role !== "mom") {
+        if ((rec && rec.usual) || d.usual) throw new Error("Ask Mom to change that.");
+        if (role.indexOf("kid:") === 0) {
+          const name = kidName_(role.slice(4));
+          if (op === "set") { if (rec || d.store === "buyrite") throw new Error("Ask Mom to change that."); body.id = ""; body.data = { store: String(d.store || ""), name: String(d.name || "").slice(0, 80), link: String(d.link || ""), img: String(d.img || ""), who: name, got: false, gotAt: "" }; }
+          else if (op === "update") { if (!rec) throw new Error("That item no longer exists."); body.data = { got: !!d.got, gotAt: d.got ? new Date().toISOString() : "" }; }
+          else if (!rec || rec.who !== name) throw new Error("Ask Mom to change that.");
+        }
+      }
     }
     else if (role.indexOf("kid:") === 0) {
       // Kids can only check their own assignments and home tasks on or off.
