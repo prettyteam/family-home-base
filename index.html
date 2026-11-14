@@ -223,6 +223,11 @@ body{top:0!important}
 :root:not([data-kid]) .mhead::before,:root:not([data-kid]) .mhead::after{background:var(--pink)}
 :root:not([data-kid]) .hhi span:first-child{color:var(--pink)}
 :root:not([data-kid]) .rbar button{color:var(--pink)}
+ .hgreet{display:flex;flex-direction:column;align-items:center;gap:10px}
+:root:not([data-kid]) header.top,:root:not([data-kid]) .hgreet,:root:not([data-kid]) .mhead{background:var(--surface);border:1px solid var(--line)}
+:root:not([data-kid]) header.top{padding:14px 16px}
+:root:not([data-kid]) .hgreet{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 28px 12px;min-width:240px}
+:root:not([data-kid]) .mhead{padding:8px 16px}
 </style>
 </head>
 <body>
@@ -932,8 +937,8 @@ function nannyHome(t, s, openTodos, due){
       if(open) cells.push(`<div class="hsub" role="group" aria-label="${esc(open.l)}">${open.items.map(it=>`<div>${link(it)}</div>`).join("")}</div>`); }
   });
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span><span class="hname">${esc(mom ? "Alexandra" : nannyName())}</span></div>
-    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="hgreet"><div class="hhi"><span>Hello,</span><span class="hname">${esc(mom ? "Alexandra" : nannyName())}</span></div>
+    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p></div>
     ${mom ? "" : `<div class="hclock">${renderClock()}</div>`}
     <div class="mhead">Menu</div>
     <div class="cgrid">${cells.join("")}</div>
@@ -951,8 +956,8 @@ function renderHome(){
   const tiles = HOME_TILES.map(([k,l]) => `<button type="button" data-go="${k}"><span>${esc(l)}</span>${sub[k]?`<small>${esc(sub[k])}</small>`:""}</button>`)
     .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
-    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="hgreet"><div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
+    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p></div>
     ${kids().length ? thisWeekCard() : ""}
     <div class="mhead">Menu</div>
     <div class="cgrid">${tiles.join("")}</div>
@@ -1001,8 +1006,8 @@ function kidHome(me){
   const nowM = d.getHours()*60 + d.getMinutes(), next = dayAgenda(d).find(a => !a.start || toMin(a.start) >= nowM);
   const sq = (k, l, sub) => `<button type="button" data-ktab="${k}"><span>${esc(l)}</span>${sub?`<small>${esc(sub)}</small>`:""}</button>`;
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span><span class="hname">${esc(me.name || "")}</span></div>
-    <p class="hdate">${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="hgreet"><div class="hhi"><span>Hello,</span><span class="hname">${esc(me.name || "")}</span></div>
+    <p class="hdate">${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p></div>
     <p class="hquote">“${esc(kidQuote(d))}”</p>
     <div class="mhead">Menu</div>
     <div class="cgrid">
