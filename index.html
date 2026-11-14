@@ -103,6 +103,7 @@ li.gli .gimg{width:40px;height:40px;object-fit:contain;background:#fff;border:1p
 li.gli.done .t{text-decoration:line-through;color:var(--muted)}
 li.gli .t a{color:inherit}
 .gx{background:none;border:0;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:4px 8px}
+.btn.wmcart{display:block;text-align:center;margin:10px 0 4px}
 details.usual{margin-top:12px;border-top:1px solid var(--line)}
 details.usual summary{cursor:pointer;padding:12px 0 8px;font-size:14px;font-weight:600}
 .ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
@@ -777,7 +778,7 @@ function loginLi(l){
 }
 
 /* ---------- Grocery & Supply Orders: one shared list for everyone, by store. Items live in the "groceries" tab of the Sheet.
-   A list item: {store, name, who, got, gotAt, link?, img?}. A usual item (tap-to-add, e.g. Walmart's past orders or Bagliani's favorites): {store, name, group, q?, link?, img?, usual:true}. */
+   A list item: {store, name, who, got, gotAt, link?, img?}. A usual item (tap-to-add, e.g. Walmart's past orders or Bagliani's favorites): {store, name, group, q?, wid?, link?, img?, usual:true}. wid = Walmart item number. */
 const STORES = [
   {k:"walmart", name:"Walmart", where:"Williamstown Supercenter, 1840 S Black Horse Pike", phone:"856-629-2054", hours:"Open every day 6 AM – 11 PM", site:"https://www.walmart.com/store/3774-williamstown-nj", siteLabel:"Open Walmart"},
   {k:"shoprite", name:"ShopRite", where:"80 S White Horse Pike, Hammonton", phone:"609-704-7609", hours:"", note:"DoorDash login is on the Contacts & Logins page.", site:"https://www.doordash.com/convenience/store/shoprite-hammonton-27843364/", siteLabel:"Order on DoorDash"},
@@ -785,6 +786,8 @@ const STORES = [
   {k:"walgreens", name:"Walgreens", where:"11 S White Horse Pike, Hammonton (at Trenton Rd)", phone:"609-567-0177", hours:"Pharmacy: Mon–Fri 9–9 · Sat 9–6 · Sun 9–5 (lunch 1:30–2)", note:"Grayson's prescription pickups.", site:"https://www.walgreens.com/locator/walgreens-11+s+white+horse+pike-hammonton-nj-08037/id=19745", siteLabel:"Open Walgreens"},
   {k:"buyrite", name:"Buy Rite Liquors", where:"240 S White Horse Pike, Hammonton", phone:"609-704-5078", hours:"Mon–Sat 9 AM – 9 PM · Sun 10 AM – 7 PM", note:"For wine runs.", site:"https://hammontonbuyrite.com", siteLabel:"Open website", grownups:true}];
 let grocOpen = "walmart", usualOpen = false;
+/* Walmart add-to-cart link: opens Walmart with these items already in the cart (needs Walmart item numbers, "wid") */
+const wmCart = ids => "https://affil.walmart.com/cart/addToCart?items=" + ids.map(i => encodeURIComponent(i) + "|1").join(",");
 const myName = () => kidMode ? ((kidById(kidMode)||{}).name || "") : isMom() ? "Alexandra" : nannyName();
 const grocList = k => S.groceries.filter(g => !g.usual && g.store === k);
 const grocNeed = k => grocList(k).filter(g => !g.got);
@@ -810,12 +813,15 @@ function renderGroceries(){
       <div class="gbody">
         <p class="gwhere">${esc(st.where)}${st.hours?`<br>${esc(st.hours)}`:""}${st.note?`<br>${esc(st.note)}`:""}</p>
         <div class="gbtns"><a class="btn small" href="tel:${st.phone.replace(/\D/g,"")}">Call ${esc(st.phone)}</a><a class="btn small" href="${st.site}" target="_blank" rel="noopener">${esc(st.siteLabel)}</a></div>
+        ${(() => { if(st.k !== "walmart" || readOnly) return ""; const uw = n => (S.groceries.find(u => u.usual && u.store === st.k && u.name.toLowerCase() === n.toLowerCase()) || {}).wid;
+          const ids = [...new Set(grocNeed(st.k).map(g => g.wid || uw(g.name)).filter(Boolean))];
+          return ids.length ? `<a class="btn primary wmcart" href="${wmCart(ids)}" target="_blank" rel="noopener">Put the list in my Walmart cart (${ids.length})</a>` : ""; })()}
         ${readOnly ? "" : `<form class="gadd" data-groc-add="${st.k}"><input type="text" maxlength="80" placeholder="Add an item" aria-label="Add an item for ${esc(st.name)}"><button class="btn small" type="submit">Add</button></form>`}
         ${list.some(g => !g.got || (g.gotAt && Date.now() - new Date(g.gotAt).getTime() < 864e5)) ? `<ul class="list">${list.slice().sort((a,b)=>(a.got?1:0)-(b.got?1:0)).map(grocLi).join("")}</ul>` : `<p class="empty">Nothing on the list yet.</p>`}
         ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual ${esc(st.name)} items · tap to add</summary>${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
           const on = onList.has(u.name.toLowerCase());
-          return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?"On the list":"+ Add"}</small></button>`; }).join("")}</div>`).join("")}
-          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. The name on the list links to the item on Walmart.</p>` : ""}</details>` : ""}
+          return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?"On the list":u.wid?"+ Add to cart":"+ Add"}</small></button>`; }).join("")}</div>`).join("")}
+          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. Tap a photo: it goes on our list and opens Walmart with it in the cart (be signed in to Walmart).</p>` : ""}</details>` : ""}
       </div></details>`; }).join("")}
   </section>`;
 }
@@ -827,7 +833,8 @@ function bindGroceries(){
   document.querySelectorAll("[data-groc]").forEach(c => c.onchange = () => patch("groceries", c.dataset.groc, {got: c.checked, gotAt: c.checked ? new Date().toISOString() : ""}));
   document.querySelectorAll("[data-groc-del]").forEach(b => b.onclick = () => remove("groceries", b.dataset.grocDel));
   document.querySelectorAll("[data-usual]").forEach(b => b.onclick = () => { const u = S.groceries.find(x => x._id === b.dataset.usual); if(!u) return;
-    grocOpen = u.store; save("groceries", null, {store: u.store, name: u.name, link: u.link || (u.q && u.store === "walmart" ? "https://www.walmart.com/search?q=" + encodeURIComponent(u.q) : ""), img: u.img || "", who: myName(), got: false, gotAt: ""}); });
+    if(u.wid && u.store === "walmart") window.open(wmCart([u.wid]), "_blank", "noopener");
+    grocOpen = u.store; save("groceries", null, {store: u.store, name: u.name, wid: u.wid || "", link: u.link || (u.wid ? "https://www.walmart.com/ip/" + u.wid : u.q && u.store === "walmart" ? "https://www.walmart.com/search?q=" + encodeURIComponent(u.q) : ""), img: u.img || "", who: myName(), got: false, gotAt: ""}); });
 }
 
 function renderContacts(){
