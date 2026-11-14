@@ -215,6 +215,21 @@ body{top:0!important}
 .wk .wnext{margin-top:14px;border-top:1px solid #111111;padding-top:10px}
 .wk .wnext .wkk{margin-top:0}
 .wk .wfoot{font-size:12px;color:#555555;margin:12px 0 0}
+/* Alexandra's and Jeca's views only (no data-kid): her own leopard print as the frame of the top box, plus pink accents */
+:root:not([data-kid]){--accent:#d4507e;--accent-ink:#ffffff;--accent-soft:#fbe4ec;--pink:#d4507e}
+@media (prefers-color-scheme:dark){:root:not([data-kid]){--accent:#f29bbb;--accent-ink:#0b0b0b;--accent-soft:#3a1f2a;--pink:#f29bbb}}
+
+:root:not([data-kid]) .home .cgrid>button,:root:not([data-kid]) .home .cgrid>a{outline-color:var(--pink)}
+:root:not([data-kid]) .mhead::before,:root:not([data-kid]) .mhead::after{background:var(--pink)}
+:root:not([data-kid]) .hhi span:first-child{color:var(--pink)}
+:root:not([data-kid]) .rbar button{color:var(--pink)}
+ .hgreet{display:flex;flex-direction:column;align-items:center;gap:10px}
+:root:not([data-kid]){--box:var(--surface)}
+:root:not([data-kid]) main{padding-top:0}
+:root:not([data-kid]) .home{padding-top:0}
+:root:not([data-kid]) header.top,:root:not([data-kid]) .home .hgreet{--leo:url("leopard.jpg") 0 0/240px auto;background:linear-gradient(var(--box),var(--box)) padding-box,var(--leo) border-box;border:10px solid transparent}
+:root:not([data-kid]) header.top{border-bottom:0;padding:12px 10px 4px}
+:root:not([data-kid]) .home .hgreet{border-top:0;align-self:stretch;padding:8px 10px 14px;margin-bottom:6px;--leo:url("leopard.jpg") 0 -100px/240px auto}
 </style>
 </head>
 <body>
@@ -924,8 +939,8 @@ function nannyHome(t, s, openTodos, due){
       if(open) cells.push(`<div class="hsub" role="group" aria-label="${esc(open.l)}">${open.items.map(it=>`<div>${link(it)}</div>`).join("")}</div>`); }
   });
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span><span class="hname">${esc(mom ? "Alexandra" : nannyName())}</span></div>
-    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="hgreet"><div class="hhi"><span>Hello,</span><span class="hname">${esc(mom ? "Alexandra" : nannyName())}</span></div>
+    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p></div>
     ${mom ? "" : `<div class="hclock">${renderClock()}</div>`}
     <div class="mhead">Menu</div>
     <div class="cgrid">${cells.join("")}</div>
@@ -943,8 +958,8 @@ function renderHome(){
   const tiles = HOME_TILES.map(([k,l]) => `<button type="button" data-go="${k}"><span>${esc(l)}</span>${sub[k]?`<small>${esc(sub[k])}</small>`:""}</button>`)
     .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
-    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="hgreet"><div class="hhi"><span>Hello,</span>${hello?`<span class="hname">${esc(hello)}</span>`:""}</div>
+    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p></div>
     ${kids().length ? thisWeekCard() : ""}
     <div class="mhead">Menu</div>
     <div class="cgrid">${tiles.join("")}</div>
@@ -993,8 +1008,8 @@ function kidHome(me){
   const nowM = d.getHours()*60 + d.getMinutes(), next = dayAgenda(d).find(a => !a.start || toMin(a.start) >= nowM);
   const sq = (k, l, sub) => `<button type="button" data-ktab="${k}"><span>${esc(l)}</span>${sub?`<small>${esc(sub)}</small>`:""}</button>`;
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span><span class="hname">${esc(me.name || "")}</span></div>
-    <p class="hdate">${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    <div class="hgreet"><div class="hhi"><span>Hello,</span><span class="hname">${esc(me.name || "")}</span></div>
+    <p class="hdate">${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p></div>
     <p class="hquote">“${esc(kidQuote(d))}”</p>
     <div class="mhead">Menu</div>
     <div class="cgrid">
