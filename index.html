@@ -216,7 +216,7 @@ body{top:0!important}
 .wk .wnext .wkk{margin-top:0}
 .wk .wfoot{font-size:12px;color:#555555;margin:12px 0 0}
 /* Alexandra's and Jeca's views only (no data-kid): her own leopard print, softly faded, plus pink accents */
-:root:not([data-kid]){--accent:#d4507e;--accent-ink:#ffffff;--accent-soft:#fbe4ec;--pink:#d4507e;--leo-veil:rgba(250,250,250,.76)}
+:root:not([data-kid]){--accent:#d4507e;--accent-ink:#ffffff;--accent-soft:#fbe4ec;--pink:#d4507e;--leo-veil:rgba(250,250,250,.86)}
 @media (prefers-color-scheme:dark){:root:not([data-kid]){--accent:#f29bbb;--accent-ink:#0b0b0b;--accent-soft:#3a1f2a;--pink:#f29bbb;--leo-veil:rgba(11,11,11,.84)}}
 :root:not([data-kid]) body{background-image:linear-gradient(var(--leo-veil),var(--leo-veil)),url("leopard.jpg");background-size:auto,480px auto}
 :root:not([data-kid]) .home .cgrid>button,:root:not([data-kid]) .home .cgrid>a{outline-color:var(--pink)}
@@ -224,10 +224,11 @@ body{top:0!important}
 :root:not([data-kid]) .hhi span:first-child{color:var(--pink)}
 :root:not([data-kid]) .rbar button{color:var(--pink)}
  .hgreet{display:flex;flex-direction:column;align-items:center;gap:10px}
-:root:not([data-kid]) header.top,:root:not([data-kid]) .hgreet,:root:not([data-kid]) .mhead{background:var(--surface);border:1px solid var(--line)}
-:root:not([data-kid]) header.top{padding:14px 16px}
-:root:not([data-kid]) .hgreet{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 28px 12px;min-width:240px}
-:root:not([data-kid]) .mhead{padding:8px 16px}
+:root:not([data-kid]){--box:var(--surface);--leo-veil:rgba(250,250,250,.86)}
+:root:not([data-kid]) main{padding-top:0}
+:root:not([data-kid]) .home{padding-top:0}
+:root:not([data-kid]) header.top{background:var(--box);padding:18px 16px 4px}
+:root:not([data-kid]) .home .hgreet{align-self:stretch;background:var(--box);padding:8px 16px 18px;margin-bottom:6px}
 </style>
 </head>
 <body>
