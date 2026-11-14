@@ -89,6 +89,7 @@ body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bot
 .home .hsub button,.home .hsub a{background:none;border:0;color:var(--ink);font-family:var(--display);font-size:18px;line-height:1.2;padding:6px 12px 1px;cursor:pointer;text-decoration:none}
 .home .hsub button:hover,.home .hsub a:hover{text-decoration:underline;text-underline-offset:4px}
 .list li.pli{flex-wrap:wrap}
+.hclock{width:100%;max-width:560px;margin-top:6px}
 details.fact{border-top:1px solid var(--line)}
 details.fact:first-of-type{border-top:0}
 details.fact summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 2px;font-family:var(--display);font-size:19px;color:var(--ink)}
@@ -793,16 +794,16 @@ function render(){
   const m = $("#main");
   if(!db){ renderLogin(); return; }
   /* The au pair gets around from her homepage squares (and Back), so no tab strip, no repeated date and no Translate button up top. */
-  $("nav.tabs").hidden = !!kidMode || !isMom();
-  $("#todayLine").hidden = !isMom() && !kidMode;
-  document.querySelector("header [data-translate]").hidden = !isMom() && !kidMode;
+  $("nav.tabs").hidden = true; $("#asNanny").textContent = nannyName() === "Nanny" ? "Au Pair" : nannyName();
+  $("#todayLine").hidden = !kidMode;
+  document.querySelector("header [data-translate]").hidden = !kidMode;
   if(kidMode){ document.documentElement.dataset.kid = kidMode; $("h1").textContent = (kidById(kidMode)||{}).name ? kidById(kidMode).name + "'s Home Base" : "My Home Base"; m.innerHTML = renderKid(); bind(); return; }
   const ready = ["settings","shifts","assignments","grades","activities","todos"].every(k=>S.loaded[k]);
   if(!ready){ m.innerHTML = `<div class="panel"><p class="empty">Loading the family schedule…</p></div>`; return; }
   let top = "";
   if(!S.settings) top = `<div class="banner"><span>Welcome. Start by adding your nanny's name, your kids and how you pay.</span>${isMom()&&!readOnly?`<button class="btn primary small" id="setupBtn">Family setup</button>`:""}</div>`;
   else if(S.settings.example) top = `<div class="banner"><span>You're looking at example entries so you can see how it works. Tap Edit on anything to change it, or open Family setup to add your real details.</span>${isMom()&&!readOnly?`<button class="btn small" id="setupBtn">Family setup</button>`:""}</div>`;
-  else if(isMom() && !readOnly) top = `<div class="row" style="justify-content:flex-end"><button class="btn ghost small" id="setupBtn">Family setup</button></div>`;
+  else if(false) top = `<div class="row" style="justify-content:flex-end"><button class="btn ghost small" id="setupBtn">Family setup</button></div>`;
 
   if(tab === "home"){ m.innerHTML = top + renderHome(); bind(); return; }
   if(tab === "schedule"){ m.innerHTML = top + renderSchedule(); bind(); fitSched(); return; }
@@ -817,13 +818,19 @@ const HOME_TILES = [["today","Today"],["hours","Au Pair Hours"],["schedule","Sch
 let homeCat = "";
 function nannyHome(t, s, openTodos, due){
   const wk = weekShifts(mondayOf(t)).reduce((n,x)=>n+hrs(x.start,x.end),0);
-  const CATS = [
+  const mom = isMom();
+  const CATS = mom ? [
+    {k:"day", l:"Today", sub: s && s.start ? nannyName()+" at "+fmtT(s.start) : "", items:[["today","Today","What's happening today"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
+    {k:"hours", l:nannyName(), sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","Hours & Pay","Shifts, clock-ins and pay"],["schedule","Schedule","Weekly plan & daily routine"]]},
+    {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
+    {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@exp","Kids' Expenses","Shared costs with John"],["@cal","Family Calendar","Opens Google Calendar"],["@setup","Family setup","Names, pay and settings"]]}] : [
     {k:"day", l:"My Day", sub: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "Off today", items:[["today","Today","Clock in and your checklist"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
     {k:"hours", l:"My Hours", sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","My Hours","Clock in, out and fix times"],["schedule","My Schedule","Weekly plan & daily routine"]]},
     {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
     {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]}];
-  const link = ([k,l,sub]) => (k === "@cal"
-    ? `<a href="https://calendar.google.com" target="_blank" rel="noopener">${esc(l)}</a>`
+  const link = ([k,l,sub]) => (k === "@cal" ? `<a href="https://calendar.google.com" target="_blank" rel="noopener">${esc(l)}</a>`
+    : k === "@exp" ? `<a href="kids-expenses/">${esc(l)}</a>`
+    : k === "@setup" ? (readOnly ? "" : `<button type="button" id="setupBtn">${esc(l)}</button>`)
     : `<button type="button" data-go="${k}">${esc(l)}</button>`) + (sub?`<small>${esc(sub)}</small>`:"");
   const cells = [];
   CATS.forEach((c, i) => {
@@ -833,8 +840,9 @@ function nannyHome(t, s, openTodos, due){
       if(open) cells.push(`<div class="hsub" role="group" aria-label="${esc(open.l)}">${open.items.map(it=>`<div>${link(it)}</div>`).join("")}</div>`); }
   });
   return `<section class="home">
-    <div class="hhi"><span>Hello,</span><span class="hname">${esc(nannyName())}</span></div>
+    <div class="hhi"><span>Hello,</span><span class="hname">${esc(mom ? "Alexandra" : nannyName())}</span></div>
     <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    ${mom ? "" : `<div class="hclock">${renderClock()}</div>`}
     <div class="mhead">Menu</div>
     <div class="cgrid">${cells.join("")}</div>
     ${kids().length ? `<div style="margin-top:18px;width:100%">${thisWeekCard()}</div>` : ""}
@@ -846,7 +854,7 @@ function renderHome(){
   const soon = ymd(addDays(t,3)), due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).length;
   const sub = {today: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "", hours: "", schedule: "Weekly plan & daily routine",
     school: due ? due+" due soon" : "", activities: "", todos: openTodos ? openTodos+" open" : "All caught up", notes: ""};
-  if(!isMom()) return nannyHome(t, s, openTodos, due);
+  return nannyHome(t, s, openTodos, due);
   const hello = isMom() ? "Alexandra" : nannyName();
   const tiles = HOME_TILES.map(([k,l]) => `<button type="button" data-go="${k}"><span>${esc(l)}</span>${sub[k]?`<small>${esc(sub[k])}</small>`:""}</button>`)
     .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
