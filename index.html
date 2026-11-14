@@ -90,12 +90,32 @@ body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bot
 .home .hsub button:hover,.home .hsub a:hover{text-decoration:underline;text-underline-offset:4px}
 .list li.pli{flex-wrap:wrap}
 .hclock{width:100%;max-width:560px;margin-top:6px}
+details.groc .gbody{padding:0 2px 14px}
+details.groc .gcount{font-family:var(--body);font-size:12px;color:var(--muted);margin-left:6px}
+.gwhere{margin:0 0 8px;font-size:13px;color:var(--muted);line-height:1.45}
+.gbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+form.gadd{display:flex;gap:6px;margin:4px 0 8px}
+form.gadd input{flex:1;min-width:0}
+li.gli{align-items:center}
+li.gli .gimg{width:40px;height:40px;object-fit:contain;background:#fff;border:1px solid var(--line);flex:none}
+li.gli.done .t{text-decoration:line-through;color:var(--muted)}
+li.gli .t a{color:inherit}
+.gx{background:none;border:0;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:4px 8px}
+details.usual{margin-top:12px;border-top:1px solid var(--line)}
+details.usual summary{cursor:pointer;padding:12px 0 8px;font-size:14px;font-weight:600}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.ugroup{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.home .cgrid>button.wide{grid-column:1/-1;aspect-ratio:auto;min-height:96px}
+.ucard{background:var(--surface);border:1px solid var(--line);padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;font:inherit;font-size:12px;line-height:1.25;color:var(--ink);text-align:center}
+.ucard img{width:64px;height:64px;object-fit:contain;background:#fff}
+.ucard small{color:var(--muted);font-size:11px}
+.ucard:disabled{opacity:.55;cursor:default}
 details.fact{border-top:1px solid var(--line)}
 details.fact:first-of-type{border-top:0}
-details.fact summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 2px;font-family:var(--display);font-size:19px;color:var(--ink)}
-details.fact summary::-webkit-details-marker{display:none}
-details.fact summary::after{content:"+";font-family:var(--body);font-size:20px;color:var(--muted)}
-details.fact[open] summary::after{content:"–"}
+details.fact>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:14px 2px;font-family:var(--display);font-size:19px;color:var(--ink)}
+details.fact>summary::-webkit-details-marker{display:none}
+details.fact>summary::after{content:"+";font-family:var(--body);font-size:20px;color:var(--muted)}
+details.fact[open]>summary::after{content:"–"}
 .fbody{padding:0 2px 14px}
 .fsub{font-weight:600;margin:10px 0 2px}
 .fl{margin:4px 0;padding-left:20px;display:grid;gap:5px;line-height:1.45}
@@ -257,11 +277,11 @@ const fmtDate = s => { const d = parseYmd(s); return DAYS[d.getDay()]+", "+d.toL
 const dueLabel = s => { if(!s) return ["No due date",""]; const t = parseYmd(ymd(new Date())), d = parseYmd(s); const n = Math.round((d-t)/864e5);
   if(n<0) return ["Overdue","bad"]; if(n===0) return ["Due today","warn"]; if(n===1) return ["Due tomorrow","warn"]; return ["Due "+fmtDate(s),""]; };
 
-const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], chores:[], games:[], cal:[], loaded:{} };
+const S = { settings:null, shifts:[], assignments:[], grades:[], activities:[], todos:[], events:[], chores:[], groceries:[], games:[], cal:[], loaded:{} };
 /* Paste the Google Apps Script web app URL here (see README). */
 const API_URL = "https://script.google.com/macros/s/AKfycbyDlWMekHzV-qmFuJlhylWXOLh5gCbzc0m0FAJ-KnjjqlzRTzkTZfO1HYfeqiAFJEod/exec";
 let db = null, pin = "", isOwner = true, kidMode = "", viewAs = "mom", tab = "home", kidFilter = "all", weekStart = mondayOf(new Date()), readOnly = false;
-if(/^#(home|today|hours|schedule|school|activities|todos|notes|contacts)$/.test(location.hash)) tab = location.hash.slice(1);
+if(/^#(home|today|hours|schedule|school|activities|todos|notes|contacts|groceries)$/.test(location.hash)) tab = location.hash.slice(1);
 /* Back: the page before, then Home, then Pretty Life when she opened this from there (?from=life). The title goes Home. */
 const LIFE = "https://prettyteam.taffetadesign.com/briefing/";
 let fromLife = false;
@@ -284,7 +304,7 @@ const nannyName = () => (S.settings && S.settings.nannyName) || "Nanny";
 const isMom = () => viewAs === "mom";
 
 /* ---------- data (Google Sheet via Apps Script) ---------- */
-const COLLS = ["shifts","assignments","grades","activities","todos","events","chores"];
+const COLLS = ["shifts","assignments","grades","activities","todos","events","chores","groceries"];
 async function api(body){
   const r = await fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({pin}, body))});
   const j = await r.json(); if(!j.ok) throw new Error(j.error || "Something went wrong"); return j;
@@ -734,6 +754,61 @@ function loginLi(l){
   return `<li><div class="grow"><div class="row" style="justify-content:flex-start;gap:8px"><span class="t">${esc(label)}</span>${site[1]?`<a class="btn small" href="${site[1]}" target="_blank" rel="noopener">Open website</a>`:""}</div>${site[2]?`<div class="meta">${esc(site[2])}</div>`:""}
     ${parts.length > 1 ? field(wifi?"Network":"Login", parts[0], false) + field("Password", parts.slice(1).join(" / "), true) : field("Code", val, true)}</div></li>`;
 }
+
+/* ---------- Grocery & Supply Orders: one shared list for everyone, by store. Items live in the "groceries" tab of the Sheet.
+   A list item: {store, name, who, got, gotAt, link?, img?}. A usual item (Walmart's past orders): {store, name, link, img, usual:true}. */
+const STORES = [
+  {k:"walmart", name:"Walmart", where:"Williamstown Supercenter, 1840 S Black Horse Pike", phone:"856-629-2054", hours:"Open every day 6 AM – 11 PM", site:"https://www.walmart.com/store/3774-williamstown-nj", siteLabel:"Open Walmart"},
+  {k:"shoprite", name:"ShopRite", where:"80 S White Horse Pike, Hammonton", phone:"609-704-7609", hours:"", site:"https://www.shoprite.com", siteLabel:"Open ShopRite"},
+  {k:"bagliani", name:"Bagliani's Market", where:"417 12th St, Hammonton", phone:"609-561-0693", hours:"Open every day 8 AM – 6 PM", note:"Homemade sausage, deli, fresh bread and Italian foods.", site:"https://baglianis.com", siteLabel:"Open website"},
+  {k:"walgreens", name:"Walgreens", where:"11 S White Horse Pike, Hammonton (at Trenton Rd)", phone:"609-567-0177", hours:"Pharmacy: Mon–Fri 9–9 · Sat 9–6 · Sun 9–5 (lunch 1:30–2)", note:"Grayson's prescription pickups.", site:"https://www.walgreens.com/locator/walgreens-11+s+white+horse+pike-hammonton-nj-08037/id=19745", siteLabel:"Open Walgreens"},
+  {k:"buyrite", name:"Buy Rite Liquors", where:"240 S White Horse Pike, Hammonton", phone:"609-704-5078", hours:"Mon–Sat 9 AM – 9 PM · Sun 10 AM – 7 PM", note:"For wine runs.", site:"https://hammontonbuyrite.com", siteLabel:"Open website", grownups:true}];
+let grocOpen = "walmart", usualOpen = false;
+const myName = () => kidMode ? ((kidById(kidMode)||{}).name || "") : isMom() ? "Alexandra" : nannyName();
+const grocList = k => S.groceries.filter(g => !g.usual && g.store === k);
+const grocNeed = k => grocList(k).filter(g => !g.got);
+const grocSub = () => { const n = S.groceries.filter(g => !g.usual && !g.got).length; return n ? n + " on the list" : "Lists for each store"; };
+function grocLi(g){
+  const mine = isMom() && !kidMode || g.who === myName();
+  const recent = g.got && g.gotAt && (Date.now() - new Date(g.gotAt).getTime()) < 864e5;
+  if(g.got && !recent) return "";
+  const name = g.link ? `<a href="${esc(g.link)}" target="_blank" rel="noopener">${esc(g.name)}</a>` : esc(g.name);
+  return `<li class="gli${g.got?" done":""}"><input type="checkbox" class="check" data-groc="${g._id}" ${g.got?"checked":""} aria-label="Got ${esc(g.name)}">
+    ${g.img?`<img class="gimg" src="${esc(g.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}
+    <div class="grow"><div class="t">${name}</div>${g.who?`<div class="meta">${esc(g.who)}</div>`:""}</div>
+    ${mine && !readOnly ? `<button type="button" class="gx" data-groc-del="${g._id}" aria-label="Take ${esc(g.name)} off the list">×</button>` : ""}</li>`;
+}
+function renderGroceries(){
+  const stores = STORES.filter(st => !(kidMode && st.grownups));
+  return `<section class="panel"><h3 style="margin-bottom:2px">Grocery &amp; Supply Orders</h3>
+    <p class="note" style="margin-top:0">Tap a store. Add what we need. Check it off when it's in the cart.</p>
+    ${stores.map(st => { const need = grocNeed(st.k).length, list = grocList(st.k);
+      const usual = st.k === "walmart" ? S.groceries.filter(g => g.usual && g.store === "walmart") : [];
+      const onList = new Set(grocNeed(st.k).map(g => g.name.toLowerCase()));
+      return `<details class="fact groc" data-store="${st.k}" ${grocOpen===st.k?"open":""}><summary><span>${esc(st.name)}${need?` <small class="gcount">${need}</small>`:""}</span></summary>
+      <div class="gbody">
+        <p class="gwhere">${esc(st.where)}${st.hours?`<br>${esc(st.hours)}`:""}${st.note?`<br>${esc(st.note)}`:""}</p>
+        <div class="gbtns"><a class="btn small" href="tel:${st.phone.replace(/\D/g,"")}">Call ${esc(st.phone)}</a><a class="btn small" href="${st.site}" target="_blank" rel="noopener">${esc(st.siteLabel)}</a></div>
+        ${readOnly ? "" : `<form class="gadd" data-groc-add="${st.k}"><input type="text" maxlength="80" placeholder="Add an item" aria-label="Add an item for ${esc(st.name)}"><button class="btn small" type="submit">Add</button></form>`}
+        ${list.some(g => !g.got || (g.gotAt && Date.now() - new Date(g.gotAt).getTime() < 864e5)) ? `<ul class="list">${list.slice().sort((a,b)=>(a.got?1:0)-(b.got?1:0)).map(grocLi).join("")}</ul>` : `<p class="empty">Nothing on the list yet.</p>`}
+        ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual Walmart items · tap to add</summary>${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
+          const on = onList.has(u.name.toLowerCase());
+          return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?"On the list":"+ Add"}</small></button>`; }).join("")}</div>`).join("")}
+          <p class="note">These come from our past Walmart orders. The name on the list links to the item on Walmart.</p></details>` : ""}
+      </div></details>`; }).join("")}
+  </section>`;
+}
+function bindGroceries(){
+  document.querySelectorAll("details.groc").forEach(d => d.ontoggle = () => { if(d.open && d.isConnected){ grocOpen = d.dataset.store; document.querySelectorAll("details.groc").forEach(o => { if(o !== d) o.open = false; }); } });
+  document.querySelectorAll("details.usual").forEach(d => d.ontoggle = () => { if(d.isConnected) usualOpen = d.open; });
+  document.querySelectorAll("[data-groc-add]").forEach(f => f.onsubmit = e => { e.preventDefault(); const i = f.querySelector("input"), t = i.value.trim(); if(!t) return;
+    grocOpen = f.dataset.grocAdd; save("groceries", null, {store: f.dataset.grocAdd, name: t, who: myName(), got: false, gotAt: ""}); i.value = ""; });
+  document.querySelectorAll("[data-groc]").forEach(c => c.onchange = () => patch("groceries", c.dataset.groc, {got: c.checked, gotAt: c.checked ? new Date().toISOString() : ""}));
+  document.querySelectorAll("[data-groc-del]").forEach(b => b.onclick = () => remove("groceries", b.dataset.grocDel));
+  document.querySelectorAll("[data-usual]").forEach(b => b.onclick = () => { const u = S.groceries.find(x => x._id === b.dataset.usual); if(!u) return;
+    grocOpen = "walmart"; save("groceries", null, {store: "walmart", name: u.name, link: u.link || "", img: u.img || "", who: myName(), got: false, gotAt: ""}); });
+}
+
 function renderContacts(){
   const sec = noteSections(), people = parsePeople((sec["FAMILY & OTHER CONTACTS"]||[]).concat(sec["CONTACTS"]||[]));
   const med = p => /pediatric|ortho|chiro|behavioral|therap|specialist|dr\.|doctor|dental|dentist/i.test(p.name+" "+p.role);
@@ -807,7 +882,7 @@ function render(){
 
   if(tab === "home"){ m.innerHTML = top + renderHome(); bind(); return; }
   if(tab === "schedule"){ m.innerHTML = top + renderSchedule(); bind(); fitSched(); return; }
-  const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes, contacts:renderContacts}[tab]();
+  const body = {today:renderToday, hours:renderHours, school:renderSchool, activities:renderActivities, todos:renderTodos, notes:renderNotes, contacts:renderContacts, groceries:renderGroceries}[tab]();
   m.innerHTML = top + body;
   bind();
 }
@@ -823,18 +898,21 @@ function nannyHome(t, s, openTodos, due){
     {k:"day", l:"Today", sub: s && s.start ? nannyName()+" at "+fmtT(s.start) : "", items:[["today","Today","What's happening today"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
     {k:"hours", l:nannyName(), sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","Hours & Pay","Shifts, clock-ins and pay"],["schedule","Schedule","Weekly plan & daily routine"]]},
     {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
-    {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@exp","Kids' Expenses","Shared costs with John"],["@cal","Family Calendar","Opens Google Calendar"],["@setup","Family setup","Names, pay and settings"]]}] : [
+    {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@exp","Kids' Expenses","Shared costs with John"],["@cal","Family Calendar","Opens Google Calendar"],["@setup","Family setup","Names, pay and settings"]]},
+    {k:"groc", go:"groceries", l:"Grocery & Supply Orders", sub: grocSub()}] : [
     {k:"day", l:"My Day", sub: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "Off today", items:[["today","Today","Clock in and your checklist"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
     {k:"hours", l:"My Hours", sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","My Hours","Clock in, out and fix times"],["schedule","My Schedule","Weekly plan & daily routine"]]},
     {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
-    {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]}];
+    {k:"house", l:"The House", sub: "", items:[["contacts","Contacts & Logins","People, school, takeout & Walmart"],["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]},
+    {k:"groc", go:"groceries", l:"Grocery & Supply Orders", sub: grocSub()}];
   const link = ([k,l,sub]) => (k === "@cal" ? `<a href="https://calendar.google.com" target="_blank" rel="noopener">${esc(l)}</a>`
     : k === "@exp" ? `<a href="kids-expenses/">${esc(l)}</a>`
     : k === "@setup" ? (readOnly ? "" : `<button type="button" id="setupBtn">${esc(l)}</button>`)
     : `<button type="button" data-go="${k}">${esc(l)}</button>`) + (sub?`<small>${esc(sub)}</small>`:"");
   const cells = [];
   CATS.forEach((c, i) => {
-    cells.push(`<button type="button" data-hcat="${c.k}" aria-expanded="${homeCat===c.k}"><span>${esc(c.l)}</span>${c.sub?`<small>${esc(c.sub)}</small>`:""}</button>`);
+    cells.push(c.go ? `<button type="button" class="wide" data-go="${c.go}"><span>${esc(c.l)}</span>${c.sub?`<small>${esc(c.sub)}</small>`:""}</button>`
+      : `<button type="button" data-hcat="${c.k}" aria-expanded="${homeCat===c.k}"><span>${esc(c.l)}</span>${c.sub?`<small>${esc(c.sub)}</small>`:""}</button>`);
     const row = CATS.slice(i - i%2, i - i%2 + 2);
     if(i%2 === 1 || i === CATS.length-1){ const open = row.find(r => r.k === homeCat);
       if(open) cells.push(`<div class="hsub" role="group" aria-label="${esc(open.l)}">${open.items.map(it=>`<div>${link(it)}</div>`).join("")}</div>`); }
@@ -918,6 +996,7 @@ function kidHome(me){
       ${sq("home","Home tasks", list.length ? doneN+" of "+list.length+" done today" : "")}
       ${sq("cal","My calendar", next ? (next.start ? fmtT(next.start)+" · " : "")+next.name : "Nothing else today")}
       <a href="https://classroom.google.com" target="_blank" rel="noopener"><span>Google Classroom</span><small>Turn in work</small></a>
+      ${sq("groc","Grocery & Supply Orders", grocSub()).replace("<button ", '<button class="wide" ')}
     </div>
   </section>`;
 }
@@ -925,6 +1004,7 @@ function renderKid(){
   const me = kidById(kidMode) || {name:"", id:kidMode};
   const tabs = `<nav class="tabs" role="tablist" aria-label="Sections" style="margin-top:0"><button role="tab" data-ktab="start" aria-selected="${kidTab==="start"}">Home</button><button role="tab" data-ktab="work" aria-selected="${kidTab==="work"}">My assignments</button><button role="tab" data-ktab="home" aria-selected="${kidTab==="home"}">Home tasks</button><button role="tab" data-ktab="cal" aria-selected="${kidTab==="cal"}">My calendar</button></nav>`;
   if(kidTab === "start") return tabs + kidHome(me);
+  if(kidTab === "groc") return tabs + renderGroceries();
   if(kidTab === "home"){
     const d = new Date(), list = tasksFor(me.id, d), n = list.filter(t=>choreDone(me.id,d,t.key)).length;
     const tk = trashKid(d), next = trashKid(addDays(d,7));
@@ -949,7 +1029,7 @@ function renderKid(){
 
 function bind(){
   const on = (sel, fn) => { const el = $(sel); if(el) el.onclick = fn; };
-  on("#setupBtn", setupForm); bindClock();
+  on("#setupBtn", setupForm); bindClock(); bindGroceries();
   on("#wkPrev", () => { weekStart = addDays(weekStart,-7); render(); });
   on("#wkNext", () => { weekStart = addDays(weekStart,7); render(); });
   on("#addShift", () => shiftForm(null));
@@ -961,7 +1041,7 @@ function bind(){
     for(const s of prev){ const nd = ymd(addDays(parseYmd(s.date),7)); if(have.has(nd)) continue; await save("shifts", null, {date:nd,start:s.start,end:s.end,inAt:"",outAt:"",note:s.note||""}); } });
   on("#addAssign", () => assignForm(null)); on("#addGrade", () => gradeForm(null)); on("#addAct", () => actForm(null)); on("#addTodo", () => todoForm(null)); on("#addEvent", () => eventForm(null));
   on("#editHouse", () => openForm("Family Facts", [{key:"houseNotes",label:"Notes "+nannyName()+" should always have",type:"textarea",rows:10}], S.settings||{}, v => { save("settings","main", Object.assign({}, S.settings||{}, v)); }));
-  document.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { kidFilter = b.dataset.kid; render(); });
+  document.querySelectorAll("button[data-kid]").forEach(b => b.onclick = () => { kidFilter = b.dataset.kid; render(); });
   document.querySelectorAll("[data-actweek]").forEach(b => b.onclick = () => { actWeek = Number(b.dataset.actweek); render(); });
   document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
   document.querySelectorAll("[data-todo]").forEach(c => c.onchange = () => patch("todos", c.dataset.todo, {done: c.checked, doneAt: c.checked ? new Date().toISOString() : ""}));
@@ -979,7 +1059,7 @@ function bind(){
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => goTab(b.dataset.go));
-  document.querySelectorAll("details.fact").forEach(d => d.ontoggle = () => { if(d.open){ factOpen = d.dataset.fact; document.querySelectorAll("details.fact").forEach(o => { if(o !== d) o.open = false; }); } });
+  document.querySelectorAll("details.fact:not(.groc)").forEach(d => d.ontoggle = () => { if(d.open && d.isConnected){ factOpen = d.dataset.fact; document.querySelectorAll("details.fact:not(.groc)").forEach(o => { if(o !== d) o.open = false; }); } });
   document.querySelectorAll("[data-reveal]").forEach(b => b.onclick = () => { const v = b.previousElementSibling, show = b.textContent === "Show";
     v.textContent = show ? v.dataset.val : "••••••••"; b.textContent = show ? "Hide" : "Show"; });
   document.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; } catch(e){ b.textContent = "Couldn't copy"; }

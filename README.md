@@ -34,6 +34,10 @@ The app can copy the kids' weekly activities and the nanny's shifts for the next
 
 The sync only goes one way, from the app to the Skylight. Events added on the Skylight don't come back into the app.
 
+## Grocery & Supply Orders
+
+Everyone (Alexandra, the nanny and the boys) shares one shopping list, split by store. Items live in the **groceries** tab of the Sheet. The boys add items under their own name, check items off, and can take off only what they added. The "usual Walmart items" (records with `usual: true`) can only be changed by Alexandra.
+
 ## Updating the backend later
 
 After you paste new code into Apps Script, choose **Deploy > Manage deployments**, edit the existing deployment, and pick **New version**. Doing it this way keeps the same URL.
