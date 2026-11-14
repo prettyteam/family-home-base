@@ -82,6 +82,13 @@ body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bot
 .home .cgrid{display:grid;grid-template-columns:repeat(2,minmax(124px,150px));gap:8px;justify-content:center}
 .home .cgrid>button,.home .cgrid>a{background:var(--surface);color:var(--ink);border:1px solid var(--ink);outline:1px solid var(--ink);outline-offset:-6px;border-radius:0;aspect-ratio:1/1;font-family:var(--display);font-size:16px;line-height:1.2;padding:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;text-decoration:none}
 .home .cgrid small{font-family:var(--body);font-size:11px;color:var(--muted);letter-spacing:.02em}
+/* Category squares (au pair's homepage): the open square gets a heavier inner line; its pages list under that row */
+.home .cgrid>button[aria-expanded="true"]{outline-width:2px}
+.home .hsub{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0 12px}
+.home .hsub>div{display:flex;flex-direction:column;align-items:center}
+.home .hsub button,.home .hsub a{background:none;border:0;color:var(--ink);font-family:var(--display);font-size:18px;line-height:1.2;padding:6px 12px 1px;cursor:pointer;text-decoration:none}
+.home .hsub button:hover,.home .hsub a:hover{text-decoration:underline;text-underline-offset:4px}
+.home .hsub small{font-size:11px;color:var(--muted);letter-spacing:.02em}
 .schedframe{width:100%;min-height:600px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:12px}
 button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 main{padding-top:20px;display:grid;gap:24px}
@@ -679,12 +686,40 @@ function render(){
 
 /* ---------- Home: a greeting, then the menu squares (like the salon apps' homepages) ---------- */
 const HOME_TILES = [["today","Today"],["hours","Au Pair Hours"],["schedule","Schedule"],["school","School"],["activities","Activities"],["todos","To-dos"],["notes","Family Facts"]];
+/* The au pair's homepage: four category squares (like the Weddings app). Tap one and its pages open in a list right under that row. */
+let homeCat = "";
+function nannyHome(t, s, openTodos, due){
+  const wk = weekShifts(mondayOf(t)).reduce((n,x)=>n+hrs(x.start,x.end),0);
+  const CATS = [
+    {k:"day", l:"My Day", sub: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "Off today", items:[["today","Today","Clock in and your checklist"],["todos","To-dos",openTodos?openTodos+" open":"All caught up"]]},
+    {k:"hours", l:"My Hours", sub: wk ? fmtH(wk)+" hrs this week" : "", items:[["hours","My Hours","Clock in, out and fix times"],["schedule","My Schedule","Weekly plan & daily routine"]]},
+    {k:"boys", l:"The Boys", sub: due ? due+" due soon" : "", items:[["school","School",due?due+" due soon":"Homework, tests & grades"],["activities","Activities","Practices, games & rides"]]},
+    {k:"house", l:"The House", sub: "", items:[["notes","Family Facts","House rules & good to know"],["@cal","Family Calendar","Opens Google Calendar"]]}];
+  const link = ([k,l,sub]) => (k === "@cal"
+    ? `<a href="https://calendar.google.com" target="_blank" rel="noopener">${esc(l)}</a>`
+    : `<button type="button" data-go="${k}">${esc(l)}</button>`) + (sub?`<small>${esc(sub)}</small>`:"");
+  const cells = [];
+  CATS.forEach((c, i) => {
+    cells.push(`<button type="button" data-hcat="${c.k}" aria-expanded="${homeCat===c.k}"><span>${esc(c.l)}</span>${c.sub?`<small>${esc(c.sub)}</small>`:""}</button>`);
+    const row = CATS.slice(i - i%2, i - i%2 + 2);
+    if(i%2 === 1 || i === CATS.length-1){ const open = row.find(r => r.k === homeCat);
+      if(open) cells.push(`<div class="hsub" role="group" aria-label="${esc(open.l)}">${open.items.map(it=>`<div>${link(it)}</div>`).join("")}</div>`); }
+  });
+  return `<section class="home">
+    <div class="hhi"><span>Hello,</span><span class="hname">${esc(nannyName())}</span></div>
+    <p class="hdate">${DAYS_LONG[t.getDay()]}, ${t.toLocaleDateString(undefined,{month:"long",day:"numeric"})}</p>
+    ${kids().length ? thisWeekCard() : ""}
+    <div class="mhead">Menu</div>
+    <div class="cgrid">${cells.join("")}</div>
+  </section>`;
+}
 function renderHome(){
   const t = new Date(), s = todayShift();
   const openTodos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom")).length;
   const soon = ymd(addDays(t,3)), due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).length;
   const sub = {today: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "", hours: "", schedule: "Weekly plan & daily routine",
     school: due ? due+" due soon" : "", activities: "", todos: openTodos ? openTodos+" open" : "All caught up", notes: ""};
+  if(!isMom()) return nannyHome(t, s, openTodos, due);
   const hello = isMom() ? "Alexandra" : nannyName();
   const tiles = HOME_TILES.map(([k,l]) => `<button type="button" data-go="${k}"><span>${esc(l)}</span>${sub[k]?`<small>${esc(sub[k])}</small>`:""}</button>`)
     .concat(isMom() ? [`<a href="kids-expenses/"><span>Kids' Expenses</span></a>`] : [`<button type="button" data-translate><span>${ptOn()?"English":"Português"}</span><small>${ptOn()?"Switch to English":"Traduzir o app"}</small></button>`]);
@@ -809,6 +844,7 @@ function bind(){
     save("settings","main", Object.assign({}, strip(S.settings||{}), {trashStart: ks[(i+1)%ks.length].id})); });
   document.querySelectorAll("[data-ktab]").forEach(b => b.onclick = () => { kidTab = b.dataset.ktab; render(); });
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => goTab(b.dataset.go));
+  document.querySelectorAll("[data-hcat]").forEach(b => b.onclick = () => { homeCat = homeCat === b.dataset.hcat ? "" : b.dataset.hcat; render(); });
   document.querySelectorAll("[data-schedlang]").forEach(b => b.onclick = () => { schedLang = b.dataset.schedlang; try{ localStorage.setItem("fhb-sched", schedLang); }catch(e){} render(); });
   on("#schedCopy", async () => { const f = $("#schedFrame"), b = $("#schedCopy"); let txt = "";
     try { txt = f.contentDocument.body.innerText.replace(/\n{3,}/g, "\n\n").trim(); } catch(e){}
