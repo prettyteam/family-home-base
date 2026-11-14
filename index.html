@@ -808,7 +808,7 @@ function bindGroceries(){
   document.querySelectorAll("[data-groc]").forEach(c => c.onchange = () => patch("groceries", c.dataset.groc, {got: c.checked, gotAt: c.checked ? new Date().toISOString() : ""}));
   document.querySelectorAll("[data-groc-del]").forEach(b => b.onclick = () => remove("groceries", b.dataset.grocDel));
   document.querySelectorAll("[data-usual]").forEach(b => b.onclick = () => { const u = S.groceries.find(x => x._id === b.dataset.usual); if(!u) return;
-    grocOpen = "walmart"; save("groceries", null, {store: "walmart", name: u.name, link: u.link || "", img: u.img || "", who: myName(), got: false, gotAt: ""}); });
+    grocOpen = "walmart"; save("groceries", null, {store: "walmart", name: u.name, link: u.link || (u.q ? "https://www.walmart.com/search?q=" + encodeURIComponent(u.q) : ""), img: u.img || "", who: myName(), got: false, gotAt: ""}); });
 }
 
 function renderContacts(){
