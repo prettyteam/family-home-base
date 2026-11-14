@@ -104,6 +104,8 @@ li.gli.done .t{text-decoration:line-through;color:var(--muted)}
 li.gli .t a{color:inherit}
 .gx{background:none;border:0;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:4px 8px}
 .btn.wmcart{display:block;text-align:center;margin:10px 0 4px}
+.wmstick{position:sticky;top:8px;z-index:2;margin:10px 0}
+p.note.wmstick{background:var(--surface);padding:8px;margin:10px 0}
 details.usual{margin-top:12px;border-top:1px solid var(--line)}
 details.usual summary{cursor:pointer;padding:12px 0 8px;font-size:14px;font-weight:600}
 .ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
@@ -809,19 +811,20 @@ function renderGroceries(){
     ${stores.map(st => { const need = grocNeed(st.k).length, list = grocList(st.k);
       const usual = S.groceries.filter(g => g.usual && g.store === st.k);
       const onList = new Set(grocNeed(st.k).map(g => g.name.toLowerCase()));
+      const cartBtn = (() => { if(st.k !== "walmart" || readOnly) return ""; const uw = n => (S.groceries.find(u => u.usual && u.store === st.k && u.name.toLowerCase() === n.toLowerCase()) || {}).wid;
+        const ids = [...new Set(grocNeed(st.k).map(g => g.wid || uw(g.name)).filter(Boolean))];
+        return ids.length ? `<a class="btn primary wmcart" href="${wmCart(ids)}" target="_blank" rel="noopener">Put ${ids.length} item${ids.length === 1 ? "" : "s"} in my Walmart cart</a>` : ""; })();
       return `<details class="fact groc" data-store="${st.k}" ${grocOpen===st.k?"open":""}><summary><span>${esc(st.name)}${need?` <small class="gcount">${need}</small>`:""}</span></summary>
       <div class="gbody">
         <p class="gwhere">${esc(st.where)}${st.hours?`<br>${esc(st.hours)}`:""}${st.note?`<br>${esc(st.note)}`:""}</p>
         <div class="gbtns"><a class="btn small" href="tel:${st.phone.replace(/\D/g,"")}">Call ${esc(st.phone)}</a><a class="btn small" href="${st.site}" target="_blank" rel="noopener">${esc(st.siteLabel)}</a></div>
-        ${(() => { if(st.k !== "walmart" || readOnly) return ""; const uw = n => (S.groceries.find(u => u.usual && u.store === st.k && u.name.toLowerCase() === n.toLowerCase()) || {}).wid;
-          const ids = [...new Set(grocNeed(st.k).map(g => g.wid || uw(g.name)).filter(Boolean))];
-          return ids.length ? `<a class="btn primary wmcart" href="${wmCart(ids)}" target="_blank" rel="noopener">Put the list in my Walmart cart (${ids.length})</a>` : ""; })()}
+        ${cartBtn}
         ${readOnly ? "" : `<form class="gadd" data-groc-add="${st.k}"><input type="text" maxlength="80" placeholder="Add an item" aria-label="Add an item for ${esc(st.name)}"><button class="btn small" type="submit">Add</button></form>`}
         ${list.some(g => !g.got || (g.gotAt && Date.now() - new Date(g.gotAt).getTime() < 864e5)) ? `<ul class="list">${list.slice().sort((a,b)=>(a.got?1:0)-(b.got?1:0)).map(grocLi).join("")}</ul>` : `<p class="empty">Nothing on the list yet.</p>`}
-        ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual ${esc(st.name)} items · tap to add</summary>${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
+        ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual ${esc(st.name)} items · ${st.k === "walmart" ? "tap to pick" : "tap to add"}</summary>${st.k === "walmart" && !readOnly ? (cartBtn ? cartBtn.replace("btn primary wmcart", "btn primary wmcart wmstick") : `<p class="note wmstick">Tap the photos you want. Then tap the pink button to put them all in your Walmart cart.</p>`) : ""}${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
           const on = onList.has(u.name.toLowerCase());
-          return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?"On the list":u.wid?"+ Add to cart":"+ Add"}</small></button>`; }).join("")}</div>`).join("")}
-          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. Tap a photo: it goes on our list and opens Walmart with it in the cart (be signed in to Walmart).</p>` : ""}</details>` : ""}
+          return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?(st.k === "walmart" ? "Picked ✓" : "On the list"):st.k === "walmart" ? "+ Pick" : "+ Add"}</small></button>`; }).join("")}</div>`).join("")}
+          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. Tap the photos you want. Then tap the pink button to put them all in your Walmart cart at once (be signed in to Walmart).</p>` : ""}</details>` : ""}
       </div></details>`; }).join("")}
   </section>`;
 }
@@ -833,7 +836,6 @@ function bindGroceries(){
   document.querySelectorAll("[data-groc]").forEach(c => c.onchange = () => patch("groceries", c.dataset.groc, {got: c.checked, gotAt: c.checked ? new Date().toISOString() : ""}));
   document.querySelectorAll("[data-groc-del]").forEach(b => b.onclick = () => remove("groceries", b.dataset.grocDel));
   document.querySelectorAll("[data-usual]").forEach(b => b.onclick = () => { const u = S.groceries.find(x => x._id === b.dataset.usual); if(!u) return;
-    if(u.wid && u.store === "walmart") window.open(wmCart([u.wid]), "_blank", "noopener");
     grocOpen = u.store; save("groceries", null, {store: u.store, name: u.name, wid: u.wid || "", link: u.link || (u.wid ? "https://www.walmart.com/ip/" + u.wid : u.q && u.store === "walmart" ? "https://www.walmart.com/search?q=" + encodeURIComponent(u.q) : ""), img: u.img || "", who: myName(), got: false, gotAt: ""}); });
 }
 
