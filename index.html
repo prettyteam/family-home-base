@@ -758,7 +758,7 @@ function loginLi(l){
 }
 
 /* ---------- Grocery & Supply Orders: one shared list for everyone, by store. Items live in the "groceries" tab of the Sheet.
-   A list item: {store, name, who, got, gotAt, link?, img?}. A usual item (Walmart's past orders): {store, name, link, img, usual:true}. */
+   A list item: {store, name, who, got, gotAt, link?, img?}. A usual item (tap-to-add, e.g. Walmart's past orders or Bagliani's favorites): {store, name, group, q?, link?, img?, usual:true}. */
 const STORES = [
   {k:"walmart", name:"Walmart", where:"Williamstown Supercenter, 1840 S Black Horse Pike", phone:"856-629-2054", hours:"Open every day 6 AM – 11 PM", site:"https://www.walmart.com/store/3774-williamstown-nj", siteLabel:"Open Walmart"},
   {k:"shoprite", name:"ShopRite", where:"80 S White Horse Pike, Hammonton", phone:"609-704-7609", hours:"", site:"https://www.shoprite.com", siteLabel:"Open ShopRite"},
@@ -785,7 +785,7 @@ function renderGroceries(){
   return `<section class="panel"><h3 style="margin-bottom:2px">Grocery &amp; Supply Orders</h3>
     <p class="note" style="margin-top:0">Tap a store. Add what we need. Check it off when it's in the cart.</p>
     ${stores.map(st => { const need = grocNeed(st.k).length, list = grocList(st.k);
-      const usual = st.k === "walmart" ? S.groceries.filter(g => g.usual && g.store === "walmart") : [];
+      const usual = S.groceries.filter(g => g.usual && g.store === st.k);
       const onList = new Set(grocNeed(st.k).map(g => g.name.toLowerCase()));
       return `<details class="fact groc" data-store="${st.k}" ${grocOpen===st.k?"open":""}><summary><span>${esc(st.name)}${need?` <small class="gcount">${need}</small>`:""}</span></summary>
       <div class="gbody">
@@ -793,10 +793,10 @@ function renderGroceries(){
         <div class="gbtns"><a class="btn small" href="tel:${st.phone.replace(/\D/g,"")}">Call ${esc(st.phone)}</a><a class="btn small" href="${st.site}" target="_blank" rel="noopener">${esc(st.siteLabel)}</a></div>
         ${readOnly ? "" : `<form class="gadd" data-groc-add="${st.k}"><input type="text" maxlength="80" placeholder="Add an item" aria-label="Add an item for ${esc(st.name)}"><button class="btn small" type="submit">Add</button></form>`}
         ${list.some(g => !g.got || (g.gotAt && Date.now() - new Date(g.gotAt).getTime() < 864e5)) ? `<ul class="list">${list.slice().sort((a,b)=>(a.got?1:0)-(b.got?1:0)).map(grocLi).join("")}</ul>` : `<p class="empty">Nothing on the list yet.</p>`}
-        ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual Walmart items · tap to add</summary>${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
+        ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual ${esc(st.name)} items · tap to add</summary>${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
           const on = onList.has(u.name.toLowerCase());
           return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?"On the list":"+ Add"}</small></button>`; }).join("")}</div>`).join("")}
-          <p class="note">These come from our past Walmart orders. The name on the list links to the item on Walmart.</p></details>` : ""}
+          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. The name on the list links to the item on Walmart.</p>` : ""}</details>` : ""}
       </div></details>`; }).join("")}
   </section>`;
 }
@@ -808,7 +808,7 @@ function bindGroceries(){
   document.querySelectorAll("[data-groc]").forEach(c => c.onchange = () => patch("groceries", c.dataset.groc, {got: c.checked, gotAt: c.checked ? new Date().toISOString() : ""}));
   document.querySelectorAll("[data-groc-del]").forEach(b => b.onclick = () => remove("groceries", b.dataset.grocDel));
   document.querySelectorAll("[data-usual]").forEach(b => b.onclick = () => { const u = S.groceries.find(x => x._id === b.dataset.usual); if(!u) return;
-    grocOpen = "walmart"; save("groceries", null, {store: "walmart", name: u.name, link: u.link || (u.q ? "https://www.walmart.com/search?q=" + encodeURIComponent(u.q) : ""), img: u.img || "", who: myName(), got: false, gotAt: ""}); });
+    grocOpen = u.store; save("groceries", null, {store: u.store, name: u.name, link: u.link || (u.q && u.store === "walmart" ? "https://www.walmart.com/search?q=" + encodeURIComponent(u.q) : ""), img: u.img || "", who: myName(), got: false, gotAt: ""}); });
 }
 
 function renderContacts(){
