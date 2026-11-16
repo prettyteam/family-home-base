@@ -475,11 +475,64 @@ function bindClock(){
   if(co) co.onclick = () => { const s = todayShift(); if(s) patch("shifts", s._id, {outAt: nowHM()}); };
 }
 
+/* ---------- Graded in the gradebook = done ----------
+   Google Classroom often says "Missing" when the teacher just never marked it turned in
+   (paper work, or Turn In wasn't clicked). If the Parent Portal gradebook has a grade for
+   the same assignment, the work was done, so the app treats it as done everywhere.
+   We look in two places:
+   1. the item's own notes ("Graded: 85", "Parent portal: graded 4/6", "portal shows 15/15")
+   2. a Parent Portal row for the same boy and class with a grade, whose name matches
+      (names differ a bit between the two systems, so we compare the words) */
+const GRADE_RE = /(?:^|[^a-z])(?:graded|grade)\s*:?\s*(\d+(?:\.\d+)?(?:\s*\/\s*\d+(?:\.\d+)?)?|[A-F][+-]?(?![a-z]))/i;
+const PORTAL_SHOWS_RE = /portal[^.]*?\bshows\s+(\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)/i;
+function gradeInNotes(n){
+  n = String(n || "");
+  if(!n || /\b(not|un)\s*-?graded\b|\bno grade\b|\bMIS\b|\bINC\b|will show/i.test(n)) return "";
+  const m = n.match(GRADE_RE) || n.match(PORTAL_SHOWS_RE);
+  return m ? m[1].replace(/\s+/g,"") : "";
+}
+const CLS_ALIAS = {"language arts":"ela","english":"ela","ela":"ela","reading":"ela","social studies":"ss","ss":"ss","history":"ss","mathematics":"math","math":"math","science":"sci","spanish":"span"};
+const clsKey = c => { const k = String(c || "").toLowerCase().trim(); return CLS_ALIAS[k] || k; };
+const STOP = new Set(["the","a","an","of","and","to","in","on","for","hw","homework","assignment","week","with","mp","missing","missed","task","day","due"]);
+function titleWords(t){
+  return String(t || "").toLowerCase().replace(/^\s*miss(ing|ed)\s*:\s*/,"").replace(/&/g," ")
+    .replace(/[^a-z0-9#\-\/ ]+/g," ").split(/[\s\/]+/).map(w => w.replace(/^#/,"")).filter(w => w && !STOP.has(w));
+}
+function sameAssignment(a, b){
+  if(a === b || a.kid !== b.kid || clsKey(a.cls) !== clsKey(b.cls)) return false;
+  if(a.due && b.due && Math.abs(parseYmd(a.due) - parseYmd(b.due)) > 7*864e5) return false;
+  const A = new Set(titleWords(a.title)), B = new Set(titleWords(b.title));
+  if(!A.size || !B.size) return false;
+  /* Numbers must agree: "Chapter 3 Study Guide" is not "Chapter 4 Study Guide" */
+  const nA = [...A].filter(w => /\d/.test(w)), nB = [...B].filter(w => /\d/.test(w));
+  if(nA.length && nB.length && !nA.every(w => B.has(w)) && !nB.every(w => A.has(w))) return false;
+  let shared = 0; A.forEach(w => { if(B.has(w)) shared++; });
+  const small = Math.min(A.size, B.size);
+  if(shared >= 2 && shared / small >= 0.6) return true;           // most words match
+  return shared === small && small >= 1 && !!a.due && a.due === b.due; // short name, same day
+}
+/* The gradebook grade for an assignment, or "" if there isn't one. */
+function gradebookGrade(a){
+  if(!a) return "";
+  const own = gradeInNotes(a.notes);
+  if(own) return own;
+  for(const p of S.assignments){
+    if(p === a || !/portal/i.test(p.source || "") || /^\s*miss/i.test(p.title || "")) continue;
+    const g = gradeInNotes(p.notes);
+    if(g && sameAssignment(a, p)) return g;
+  }
+  return "";
+}
+/* Done = checked off, or it has a grade in the gradebook. */
+const isDone = a => !!a.done || !!gradebookGrade(a);
+const doneChip = a => { const g = !a.done && gradebookGrade(a); return g ? `<span class="chip good" title="Classroom may still say missing, but the gradebook has a grade, so it was done.">Graded ${esc(g)}</span>` : `<span class="chip good">Done</span>`; };
+const showTitle = a => isDone(a) ? String(a.title || "").replace(/^\s*MISS(ING|ED):\s*/i,"") : String(a.title || "");
+
 function renderToday(){
   const t = new Date(), tY = ymd(t), wd = t.getDay();
   const acts = S.activities.filter(a => Number(a.day) === wd).concat(gamesOn(tY), calOn(tY), eventsOn(tY)).sort((a,b)=>(a.start||"").localeCompare(b.start||""));
   const soon = ymd(addDays(t,3));
-  const due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
+  const due = S.assignments.filter(a => !isDone(a) && a.due && a.due <= soon).sort((a,b)=>a.due.localeCompare(b.due));
   const todos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom"));
   return `${renderClock()}
   <div class="grid2">
@@ -493,7 +546,8 @@ function renderToday(){
 
 function assignLi(a){
   const [lab, cls] = dueLabel(a.due);
-  return `<li class="${a.done?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${a.done?"checked":""} ${readOnly?"disabled":""} aria-label="Mark ${esc(a.title)} done"><div class="grow"><div class="t">${esc(a.title)}${exTag(a)}</div><div class="meta"><span style="color:${kidColor(a.kid)}">●</span> ${esc(kidName(a.kid))} · ${esc(a.cls)}${a.notes?" · "+esc(a.notes):""}</div></div><div style="display:grid;gap:4px;justify-items:end"><span class="chip ${a.done?"good":cls}">${a.done?"Done":lab}</span><span class="chip src">${esc(a.source||"Added by hand")}</span>${isMom()&&!readOnly?`<button class="btn ghost small" data-edit-assign="${a._id}">Edit</button>`:""}</div></li>`;
+  const dn = isDone(a);
+  return `<li class="${dn?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${dn?"checked":""} ${readOnly?"disabled":""} aria-label="Mark ${esc(showTitle(a))} done"><div class="grow"><div class="t">${esc(showTitle(a))}${exTag(a)}</div><div class="meta"><span style="color:${kidColor(a.kid)}">●</span> ${esc(kidName(a.kid))} · ${esc(a.cls)}${a.notes?" · "+esc(a.notes):""}</div></div><div style="display:grid;gap:4px;justify-items:end">${dn?doneChip(a):`<span class="chip ${cls}">${lab}</span>`}<span class="chip src">${esc(a.source||"Added by hand")}</span>${isMom()&&!readOnly?`<button class="btn ghost small" data-edit-assign="${a._id}">Edit</button>`:""}</div></li>`;
 }
 function todoLi(x){
   const who = x.who === "nanny" ? nannyName() : x.who === "mom" ? "Alexandra" : "Either";
@@ -540,8 +594,8 @@ function renderSchool(){
   const ks = kids();
   const f = a => kidFilter === "all" || a.kid === kidFilter;
   const todayY = ymd(new Date());
-  const open = S.assignments.filter(a => f(a) && !a.done).sort((a,b)=>(a.due||"9999").localeCompare(b.due||"9999"));
-  const recent = S.assignments.filter(a => f(a) && a.done && a.due >= ymd(addDays(new Date(),-14))).sort((a,b)=>b.due.localeCompare(a.due));
+  const open = S.assignments.filter(a => f(a) && !isDone(a)).sort((a,b)=>(a.due||"9999").localeCompare(b.due||"9999"));
+  const recent = S.assignments.filter(a => f(a) && isDone(a) && a.due >= ymd(addDays(new Date(),-14))).sort((a,b)=>b.due.localeCompare(a.due));
   const grades = S.grades.filter(f).sort((a,b)=> (kidName(a.kid)+a.cls).localeCompare(kidName(b.kid)+b.cls));
   const gChip = g => { const n = parseFloat(g); if(isNaN(n)) return ""; return n>=90?"good":n>=80?"":n>=70?"warn":"bad"; };
   const lastSync = S.settings && S.settings.lastSync;
@@ -588,7 +642,7 @@ function thisWeekCard(onlyKid){
   const now = new Date(), w = bigWeek(now), today = ymd(now);
   const ks = onlyKid ? [kidById(onlyKid) || {id:onlyKid, name:""}] : kids();
   const short = d => d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
-  const row = x => { const d = parseYmd(x.due), k = bigKind(x), past = x.due < today || (x.done && x.due <= today);
+  const row = x => { const d = parseYmd(x.due), k = bigKind(x), past = x.due < today || (isDone(x) && x.due <= today);
     const note = x.notes && /grade|graded|bring|study|chapter|unit|pages?|cover/i.test(x.notes) ? x.notes.replace(/^(test|quiz|project)( category)?\.\s*/i,"") : "";
     return `<li class="${past?"past":""}"><div class="wday">${DAYS[d.getDay()]}<b>${d.getDate()}</b></div><div><div class="wt">${esc(x.title.replace(/^MISS(ING|ED):\s*/i,""))}</div><div class="wm">${esc(x.cls||"")}${note?" · "+esc(note):""}</div></div><span class="wtag ${k==="project"?"proj":""}">${past?"Done":KIND_LABEL[k]}</span></li>`; };
   const block = (k, list, none) => `${onlyKid?"":`<div class="wkk">${esc(k.name)}</div>`}${list.length?`<ul>${list.map(row).join("")}</ul>`:`<p class="wnone">${none}</p>`}`;
@@ -959,7 +1013,7 @@ function nannyHome(t, s, openTodos, due){
 function renderHome(){
   const t = new Date(), s = todayShift();
   const openTodos = S.todos.filter(x => !x.done && (isMom() || x.who !== "mom")).length;
-  const soon = ymd(addDays(t,3)), due = S.assignments.filter(a => !a.done && a.due && a.due <= soon).length;
+  const soon = ymd(addDays(t,3)), due = S.assignments.filter(a => !isDone(a) && a.due && a.due <= soon).length;
   const sub = {today: s && s.start ? fmtT(s.start)+" – "+fmtT(s.end) : "", hours: "", schedule: "Weekly plan & daily routine",
     school: due ? due+" due soon" : "", activities: "", todos: openTodos ? openTodos+" open" : "All caught up", notes: ""};
   return nannyHome(t, s, openTodos, due);
@@ -1010,7 +1064,7 @@ const kidQuote = d => { const n = Math.floor((d - new Date(d.getFullYear(),0,0))
 /* A boy's homepage: hello, the date, then four squares (same look as the family homepage) */
 function kidHome(me){
   const d = new Date(), today = ymd(d);
-  const open = S.assignments.filter(a => !a.done);
+  const open = S.assignments.filter(a => !isDone(a));
   const missing = open.filter(a => /^MISSING/i.test(a.title || "") || (a.due && a.due < today)).length;
   const dueSoon = open.filter(a => a.due && a.due >= today && a.due <= ymd(addDays(d,2))).length;
   const list = tasksFor(me.id, d), doneN = list.filter(t => choreDone(me.id, d, t.key)).length;
@@ -1047,10 +1101,11 @@ function renderKid(){
     return tabs + days.map((d,i) => { const list = dayAgenda(d);
       return `<section class="panel"><h3>${i===0?"Today":i===1?"Tomorrow":""}${i<2?" · ":""}${DAYS_LONG[d.getDay()]}, ${d.toLocaleDateString(undefined,{month:"short",day:"numeric"})}</h3>${list.length?`<ul class="list">${list.map(a=>`<li><span class="dot" style="background:${kidColor(a.kid)}"></span><div class="grow"><div class="t">${esc(a.name)}</div><div class="meta num">${a.start?fmtT(a.start)+(a.end?" – "+fmtT(a.end):""):"All day"}${a.location?" · "+esc(a.location):""}</div></div></li>`).join("")}</ul>`:`<p class="empty">Nothing planned.</p>`}</section>`; }).join("");
   }
-  const open = S.assignments.filter(a => !a.done).sort((a,b)=>(a.due||"9999").localeCompare(b.due||"9999"));
-  const done = S.assignments.filter(a => a.done).sort((a,b)=>(b.due||"").localeCompare(a.due||"")).slice(0,10);
+  const open = S.assignments.filter(a => !isDone(a)).sort((a,b)=>(a.due||"9999").localeCompare(b.due||"9999"));
+  const done = S.assignments.filter(isDone).sort((a,b)=>(b.due||"").localeCompare(a.due||"")).slice(0,10);
   const li = a => { const [lab, cls] = dueLabel(a.due);
-    return `<li class="${a.done?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${a.done?"checked":""} aria-label="Mark ${esc(a.title)} done"><div class="grow"><div class="t">${esc(a.title)}</div><div class="meta">${esc(a.cls||"")}${a.notes?" · "+esc(a.notes):""}</div></div><span class="chip ${a.done?"good":cls}">${a.done?"Done":lab}</span></li>`; };
+    const dn = isDone(a);
+    return `<li class="${dn?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${dn?"checked":""} aria-label="Mark ${esc(showTitle(a))} done"><div class="grow"><div class="t">${esc(showTitle(a))}</div><div class="meta">${esc(a.cls||"")}${a.notes?" · "+esc(a.notes):""}</div></div>${dn?doneChip(a):`<span class="chip ${cls}">${lab}</span>`}</li>`; };
   return tabs + thisWeekCard(me.id) + `<section class="panel"><div class="row"><h3 style="margin:0">To do · ${open.length}</h3><a class="btn small" href="https://classroom.google.com" target="_blank" rel="noopener">Open Google Classroom</a></div>
     ${open.length?`<ul class="list">${open.map(li).join("")}</ul>`:`<p class="empty">All done. Nice work, ${esc(me.name)}!</p>`}
     <p class="note" style="margin-top:10px">Turn it in on Google Classroom first, then check it off here.</p></section>
