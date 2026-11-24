@@ -874,7 +874,7 @@ function renderGroceries(){
       const onList = new Set(grocNeed(st.k).map(g => g.name.toLowerCase()));
       const cartBtn = (() => { if(st.k !== "walmart" || readOnly) return ""; const uw = n => (S.groceries.find(u => u.usual && u.store === st.k && u.name.toLowerCase() === n.toLowerCase()) || {}).wid;
         const ids = [...new Set(grocNeed(st.k).map(g => g.wid || uw(g.name)).filter(Boolean))];
-        return ids.length ? `<a class="btn primary wmcart" href="${wmCart(ids)}" target="_blank" rel="noopener">Put ${ids.length} item${ids.length === 1 ? "" : "s"} in my Walmart cart</a>` : ""; })();
+        return ids.length ? `<a class="btn primary wmcart" data-wmcart href="${wmCart(ids)}" target="_blank" rel="noopener">Put ${ids.length} item${ids.length === 1 ? "" : "s"} in my Walmart cart</a>` : ""; })();
       return `<details class="fact groc" data-store="${st.k}" ${grocOpen===st.k?"open":""}><summary><span>${esc(st.name)}${need?` <small class="gcount">${need}</small>`:""}</span></summary>
       <div class="gbody">
         <p class="gwhere">${esc(st.where)}${st.hours?`<br>${esc(st.hours)}`:""}${st.note?`<br>${esc(st.note)}`:""}</p>
@@ -888,11 +888,17 @@ function renderGroceries(){
         ${usual.length ? `<details class="usual" ${usualOpen?"open":""}><summary>Our usual ${esc(st.name)} items · ${st.k === "walmart" ? "tap to pick" : "tap to add"}</summary>${st.k === "walmart" && !readOnly ? (cartBtn ? cartBtn.replace("btn primary wmcart", "btn primary wmcart wmstick") : `<p class="note wmstick">Tap the photos you want. Then tap the pink button to put them all in your Walmart cart.</p>`) : ""}${[...new Set(usual.map(u => u.group || "More"))].map(gr => `<div class="ugroup">${esc(gr)}</div><div class="ugrid">${usual.filter(u => (u.group || "More") === gr).map(u => {
           const on = onList.has(u.name.toLowerCase());
           return `<button type="button" class="ucard" data-usual="${u._id}" ${on||readOnly?"disabled":""}>${u.img?`<img src="${esc(u.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`:""}<span>${esc(u.name)}</span><small>${on?(st.k === "walmart" ? "Picked ✓" : "On the list"):st.k === "walmart" ? "+ Pick" : "+ Add"}</small></button>`; }).join("")}</div>`).join("")}
-          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. Tap the photos you want. Then tap the pink button to put them all in your Walmart cart at once (be signed in to Walmart).</p>` : ""}</details>` : ""}
+          ${st.k === "walmart" ? `<p class="note">These come from our past Walmart orders. Tap the photos you want. Then tap the pink button to put them all in your Walmart cart at once (be signed in to Walmart in Safari). If Walmart says "Unable to add" for an item, that one is sold out. Tap <b>Go to cart</b>. All the others are in your cart.</p>` : ""}</details>` : ""}
       </div></details>`; }).join("")}
   </section>`;
 }
+/* On an iPhone home-screen app, outside links open in a little in-app browser that is NOT signed in to Walmart,
+   so the items land in an empty guest cart. Send the cart link to real Safari instead (x-safari-https, iOS 17+). */
+const iosHomeApp = () => (navigator.standalone === true || matchMedia("(display-mode: standalone)").matches) && /iPhone|iPad|iPod/.test(navigator.userAgent);
 function bindGroceries(){
+  document.querySelectorAll("a[data-wmcart]").forEach(a => a.onclick = e => { if(!iosHomeApp()) return; e.preventDefault();
+    const url = a.href; let left = false; const gone = () => { left = true; }; document.addEventListener("visibilitychange", gone, {once:true});
+    location.href = "x-safari-" + url; setTimeout(() => { document.removeEventListener("visibilitychange", gone); if(!left && document.visibilityState === "visible") window.open(url, "_blank", "noopener"); }, 1500); });
   document.querySelectorAll("details.groc").forEach(d => d.ontoggle = () => { if(d.open && d.isConnected){ grocOpen = d.dataset.store; document.querySelectorAll("details.groc").forEach(o => { if(o !== d) o.open = false; }); } });
   document.querySelectorAll("details.usual").forEach(d => d.ontoggle = () => { if(d.isConnected) usualOpen = d.open; });
   document.querySelectorAll("[data-groc-add]").forEach(f => f.onsubmit = e => { e.preventDefault(); const i = f.querySelector("input"), t = i.value.trim(); if(!t) return;
