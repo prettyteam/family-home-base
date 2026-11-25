@@ -959,7 +959,25 @@ function setupForm(){
     });
 }
 
+/* Keep what someone is typing in the "Add to the list" box when the page redraws (for example after checking off another to-do). */
 function render(){
+  const q = $("#qaText"), w = $("#qaWho");
+  const draft = q ? {t:q.value, w:w && w.value, f:document.activeElement === q, s:q.selectionStart} : null;
+  drawPage();
+  const q2 = $("#qaText");
+  if(draft && q2 && draft.t){ q2.value = draft.t; if($("#qaWho") && draft.w) $("#qaWho").value = draft.w; }
+  if(draft && q2 && draft.f){ q2.focus(); try { q2.setSelectionRange(draft.s, draft.s); } catch(e){} }
+}
+/* Someone is typing: a popup is open, a box on the page has the cursor, or the to-do box has unsaved words. */
+function typing(){
+  const a = document.activeElement;
+  if($("#dlg").open) return true;
+  if(a && a.closest && a.closest("#main") && (/^(TEXTAREA|SELECT)$/.test(a.tagName) || (a.tagName === "INPUT" && !/^(checkbox|radio|button|submit)$/.test(a.type)))) return true;
+  const q = $("#qaText"); return !!(q && q.value.trim());
+}
+/* The 30-second auto refresh still gets new data, but waits to redraw until nobody is typing. */
+const autoRender = () => { if(!typing()) render(); };
+function drawPage(){
   const t = new Date();
   $("#signOut").hidden = !db;
   drawBack();
@@ -1221,8 +1239,8 @@ $("#rbarBtn").onclick = () => { const b = $("#rbarBtn"); if(!db || b.disabled) r
   refresh().then(render).catch(() => toast("Couldn't refresh. Check your connection and try again.")).finally(() => { b.disabled = false; b.textContent = "Refresh"; });
 };
 $("#signOut").onclick = () => { try { localStorage.removeItem("fhb-pin"); } catch(e){} db = null; pin = ""; kidMode = ""; delete document.documentElement.dataset.kid; $("h1").textContent = "Family Home Base"; render(); };
-setInterval(() => { if(db && document.visibilityState === "visible" && !$("#dlg").open) refresh().then(render).catch(()=>{}); }, 30000);
-document.addEventListener("visibilitychange", () => { if(db && document.visibilityState === "visible") refresh().then(render).catch(()=>{}); });
+setInterval(() => { if(db && document.visibilityState === "visible" && !typing()) refresh().then(autoRender).catch(()=>{}); }, 30000);
+document.addEventListener("visibilitychange", () => { if(db && document.visibilityState === "visible") refresh().then(autoRender).catch(()=>{}); });
 let saved = ""; try { saved = localStorage.getItem("fhb-pin") || ""; } catch(e){}
 if(API_URL.indexOf("http") !== 0) $("#main").innerHTML = `<div class="panel"><p class="empty">Almost ready. The Google Sheet connection hasn't been added yet (see README).</p></div>`;
 else if(saved) signIn(saved, false); else renderLogin();
