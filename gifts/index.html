@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Christmas Gifts</title>
+<meta name="apple-mobile-web-app-title" content="Xmas Gifts">
+<meta name="theme-color" content="#f7e6e4">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,600;1,6..96,500&family=Figtree:wght@400;500;600&display=swap">
+<style>
+
+/* Same look as Kids' Expenses and Family Home Base, with a Christmas red accent. */
+:root{
+  --bg:#faf6f1; --surface:#ffffff; --ink:#2e2622; --muted:#7a6c63; --line:#ece2d8;
+  --accent:#8e2f35; --accent-ink:#ffffff; --accent-soft:#f7e6e4;
+  --good:#2f7d5b; --good-soft:#e3f2ea; --warn:#a8670f; --warn-soft:#fbefd9; --bad:#b0353c; --bad-soft:#f9e1e2;
+  --display:"Bodoni Moda", "Didot", Georgia, serif;
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
+  --accent:#e7a3a3; --accent-ink:#2a1414; --accent-soft:#3a2626;
+  --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224 }}
+:root[data-theme="dark"]{
+  --bg:#1a1714; --surface:#24201c; --ink:#f3ece4; --muted:#b5a99c; --line:#3a332c;
+  --accent:#e7a3a3; --accent-ink:#2a1414; --accent-soft:#3a2626;
+  --good:#71c79f; --good-soft:#1f3329; --warn:#e8b465; --warn-soft:#3a2e1a; --bad:#f08389; --bad-soft:#3d2224 }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--body);-webkit-text-size-adjust:100%}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:720px;margin:0 auto;padding:20px 16px calc(40px + env(safe-area-inset-bottom))}
+h1{font:600 30px/1.1 var(--display);margin:6px 0 2px;letter-spacing:.2px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+button,input,select,textarea{font:inherit;color:inherit}
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:9px 16px;font-weight:500;cursor:pointer;min-height:40px}
+a.btn{text-decoration:none;color:var(--ink);display:inline-flex;align-items:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{padding:6px 12px;min-height:34px;font-size:14px}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:var(--bad-soft)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px}
+/* Balance */
+.balance .label{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.balance .big{font:600 46px/1.05 var(--display);margin:4px 0 12px}
+.lines{display:grid;gap:6px;border-top:1px solid var(--line);padding-top:12px;font-size:15px}
+.lines div{display:flex;justify-content:space-between;gap:12px}
+.lines span:first-child{color:var(--muted)}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 8px}
+/* Filters */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);font-weight:600}
+.month{font:500 italic 19px var(--display);margin:22px 2px 8px;color:var(--muted)}
+/* Items */
+.item{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.item .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.item .what{font-weight:600}
+.item .meta{color:var(--muted);font-size:14px;margin-top:2px}
+.item .amt{text-align:right;white-space:nowrap}
+.item .half{font-weight:600;font-size:18px}
+.item .full{color:var(--muted);font-size:13px}
+.item .note{font-size:14px;color:var(--muted);margin-top:6px;font-style:italic}
+.item .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.tag{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;margin-right:4px}
+.tag.Owed{background:var(--warn-soft);color:var(--warn)}
+.tag.Paid{background:var(--good-soft);color:var(--good)}
+.tag.Declined{background:var(--bad-soft);color:var(--bad)}
+.tag.by{background:var(--accent-soft);color:var(--accent)}
+.item.Paid .half,.item.Declined .half{text-decoration:line-through;color:var(--muted);font-weight:500}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+/* Sheets (form + receipt viewer) */
+.veil{position:fixed;inset:0;background:rgba(20,14,10,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.veil.open{display:flex}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:20px 18px calc(22px + env(safe-area-inset-bottom))}
+@media (min-width:700px){.veil{align-items:center}.sheet{border-radius:22px}}
+.sheet h2{font:600 24px var(--display);margin:0 0 14px}
+.field{display:grid;gap:5px;margin-bottom:13px}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:11px 12px;width:100%;font-size:16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.split{background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin:-4px 0 14px;font-size:15px}
+.split b{font-size:18px}
+.drop{border:1.5px dashed var(--line);border-radius:14px;padding:14px;text-align:center;color:var(--muted);cursor:pointer;background:var(--surface)}
+.drop img{max-width:100%;max-height:180px;border-radius:10px;display:block;margin:0 auto 8px}
+.foot{display:flex;gap:10px;justify-content:space-between;margin-top:18px;flex-wrap:wrap}
+.foot .right{display:flex;gap:10px;margin-left:auto}
+.err{color:var(--bad);font-size:14px;min-height:1.2em;margin-top:6px}
+.viewer img{width:100%;border-radius:12px;display:block}
+.viewer iframe{width:100%;height:70vh;border:0;border-radius:12px;background:#fff}
+/* Passcode */
+.gate{max-width:380px;margin:12vh auto 0;text-align:center}
+.gate input{text-align:center;letter-spacing:.2em;font-size:20px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:30}
+.toast.show{opacity:1}
+/* Tabs, category dropdowns, older items, calendar */
+.tabs{display:flex;gap:4px;background:var(--accent-soft);border-radius:999px;padding:4px;margin:0 0 16px}
+.tab{flex:1;border:0;background:transparent;border-radius:999px;padding:9px 12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+details.cat{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-top:12px;overflow:hidden}
+details.cat summary{list-style:none;display:flex;align-items:center;gap:10px;padding:15px 16px;cursor:pointer}
+details.cat summary::-webkit-details-marker{display:none}
+details.cat summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-left:4px;transition:transform .15s}
+details.cat[open] summary::after{transform:rotate(-135deg)}
+.cname{font:600 20px var(--display)}
+.ccount{color:var(--muted);font-size:14px}
+.csum{margin-left:auto;font-weight:600;font-size:17px}
+.cbody{padding:0 12px 12px}
+.cbody .item{border-color:var(--line);background:var(--bg)}
+.oldhead{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:12px 4px 4px}
+.old{display:flex;justify-content:space-between;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.old:last-child{border-bottom:0}
+.old .what{font-weight:500}
+.old .meta{color:var(--muted);font-size:13px}
+.old .half{font-weight:600;white-space:nowrap}
+.ev{display:flex;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.evtime{min-width:64px;color:var(--muted);font-size:14px;padding-top:2px}
+.ev .what{font-weight:600}
+.ev .meta{color:var(--muted);font-size:14px;margin-top:3px}
+.tag.t-Medical{background:var(--bad-soft);color:var(--bad)}
+.tag.t-School{background:var(--accent-soft);color:var(--accent)}
+.tag.t-Activity{background:var(--good-soft);color:var(--good)}
+.hide{display:none!important}
+/* Refresh bar along the bottom (same as Family Home Base): when the page last pulled the latest, and a Refresh button */
+.rbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface);border-top:1px solid var(--line);padding:10px max(16px,env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.rbar small{font-size:13px;color:var(--muted)}
+.rbar button{border:0;background:none;color:var(--ink);font:inherit;font-size:11px;letter-spacing:.18em;text-transform:uppercase;padding:6px 2px;cursor:pointer}
+body:has(.rbar:not([hidden])){padding-bottom:calc(56px + env(safe-area-inset-bottom))}
+.seen{margin:2px 0 0;color:var(--muted);font-size:13px;text-align:center}
+.balance .seen{text-align:left;margin-top:10px}
+/* Home: greeting, MENU between two fine lines, then plain squares two across (same as Family Home Base and the salon apps) */
+.home{display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0 8px}
+.hhi{display:flex;flex-direction:column;align-items:center;font-family:var(--display);line-height:1.05}
+.hhi span:first-child{font-size:20px;color:var(--muted)}
+.hhi .hname{font-size:40px;color:var(--ink)}
+.hdate{margin:0;color:var(--muted);font-size:13px;letter-spacing:.04em}
+.linkbtn{background:none;border:0;padding:0;font:inherit;color:inherit;text-decoration:underline;cursor:pointer}
+.hbal{margin:6px 0 0;text-align:center;font-family:var(--display);font-style:italic;font-size:18px;color:var(--accent)}
+.mhead{display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);margin-top:10px}
+.mhead::before,.mhead::after{content:"";width:28px;height:1px;background:var(--ink)}
+.cgrid{display:grid;grid-template-columns:repeat(2,minmax(124px,150px));gap:8px;justify-content:center}
+.cgrid>button,.cgrid>a{background:var(--surface);color:var(--ink);border:1px solid var(--ink);outline:1px solid var(--ink);outline-offset:-6px;border-radius:0;aspect-ratio:1/1;font-family:var(--display);font-size:16px;line-height:1.2;padding:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;text-decoration:none}
+.cgrid small{font-family:var(--body);font-size:11px;color:var(--muted);letter-spacing:.02em}
+
+/* Gifts */
+.tag.Bought{background:var(--warn-soft);color:var(--warn)}
+.tag.Arrived{background:var(--accent-soft);color:var(--accent)}
+.tag.Wrapped{background:var(--good-soft);color:var(--good)}
+.tag.Idea{background:var(--line);color:var(--muted)}
+.item.Idea .half{color:var(--muted);font-weight:500}
+.people{display:grid;gap:0;border-top:1px solid var(--line);padding-top:6px;font-size:15px}
+.people div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.people div:last-child{border-bottom:0}
+.people span:first-child{color:var(--muted)}
+.people b{font-weight:600}
+.willbe{background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin:-4px 0 14px;font-size:15px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<div class="veil" id="formVeil"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+  <h2 id="formTitle">Add a gift</h2>
+  <form id="form" autocomplete="off">
+    <div class="field"><label>Photo of the order or gift</label>
+      <div class="drop" id="fDrop" tabindex="0" role="button">Tap to add a screenshot or photo, or drag it here</div>
+      <input id="fFile" type="file" accept="image/*,application/pdf" class="hide">
+    </div>
+    <div class="two">
+      <div class="field"><label for="fWho">Who is it for?</label><select id="fWho" required></select></div>
+      <div class="field" id="fOtherWrap"><label for="fOther">Name</label><input id="fOther" placeholder="e.g. Aunt Kim"></div>
+    </div>
+    <div class="field"><label for="fWhat">What is it?</label><input id="fWhat" placeholder="e.g. Camo hoodie and joggers" required></div>
+    <div class="two">
+      <div class="field"><label for="fAmt">Price you paid</label><input id="fAmt" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" required></div>
+      <div class="field"><label for="fStore">Store</label><input id="fStore" placeholder="e.g. Amazon"></div>
+    </div>
+    <div class="willbe" id="fWill"></div>
+    <div class="two">
+      <div class="field"><label for="fDate">Date</label><input id="fDate" type="date" required></div>
+      <div class="field"><label for="fStatus">Status</label><select id="fStatus"><option>Bought</option><option>Arrived</option><option>Wrapped</option><option value="Idea">Idea (not bought yet)</option></select></div>
+    </div>
+    <div class="field"><label for="fNote">Note (optional)</label><input id="fNote" placeholder="e.g. Size YL, order #"></div>
+    <div class="err" id="fErr"></div>
+    <div class="foot">
+      <button type="button" class="btn danger" id="fDelete">Delete</button>
+      <div class="right"><button type="button" class="btn ghost" id="fCancel">Cancel</button><button type="submit" class="btn primary" id="fSave">Save</button></div>
+    </div>
+  </form>
+</div></div>
+
+<div class="veil" id="viewVeil"><div class="sheet viewer" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+  <h2 id="viewTitle">Photo</h2>
+  <div id="viewBody"></div>
+  <div class="foot"><a class="btn ghost" id="viewOpen" target="_blank" rel="noopener">Open full size</a><button class="btn primary" id="viewClose">Close</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+<div class="rbar" id="rbar" hidden><small id="rbarAt"></small><button type="button" id="rbarBtn">Refresh</button></div>
+
+<script src="https://prettyteam.taffetadesign.com/g/uploader.js?v=1"></script>
+<script>
+/* Data: a private "Christmas Gifts" Google Sheet, through the Taffeta desk Apps Script (Gifts.js in prettyteam/taffeta-apps-scripts). */
+const API_URL = "https://script.google.com/macros/s/AKfycbx9ZpBSWFRlPCrRrLzJWd_AgjuoQnqKUdSDZWDu-7CkaknkcJxic_bo_DWsIzOinG90eg/exec";
+const KEY_STORE = "gx_key";
+const PEOPLE = ["Grayson", "Julian", "Hannah", "Oliver", "Mom", "Dad", "Joe"];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => "$" + Number(n || 0).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const niceDate = s => s ? new Date(s + "T12:00").toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
+
+let S = { items:[], people:PEOPLE.slice(), loadedAt:null, tab:"home", who:"All", open:{}, editing:null, file:null };
+/* Pretty Life opens this page with #k.<key> so it signs in by itself. Otherwise the 6-digit passcode. */
+let key = ""; try { key = localStorage.getItem(KEY_STORE) || ""; } catch (e) {}
+const hk = (location.hash.match(/k\.([A-Za-z0-9_-]{6,})/) || [])[1]; if (hk) key = hk;
+
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 2400); }
+
+async function api(body){
+  const r = await fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(Object.assign({type:"gifts", key}, body))});
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error || "Something went wrong. Try again.");
+  return j;
+}
+
+async function load(){
+  try {
+    const j = await api({op:"list"});
+    S.items = j.items || []; S.people = j.people && j.people.length ? j.people : PEOPLE.slice(); S.loadedAt = new Date();
+    try { localStorage.setItem(KEY_STORE, key); } catch (e) {}
+    render();
+  } catch (e) {
+    if (e.message === "bad_pin" || e.message === "locked" || !key) return gate(e.message);
+    $("#app").innerHTML = `<div class="gate"><h1>Christmas Gifts</h1><p class="sub">${esc(e.message)}</p><button class="btn" onclick="load()">Try again</button></div>`;
+  }
+}
+
+function gate(why){
+  $("#rbar").hidden = true;
+  const msg = why === "locked" ? "Too many tries. Please wait 15 minutes." : why === "bad_pin" ? "That passcode didn't match." : "Enter your passcode to see your list.";
+  $("#app").innerHTML = `<form class="gate" id="gate"><h1>Christmas Gifts</h1><p class="sub">${msg}</p>
+    <div class="field"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" aria-label="Passcode" autofocus></div>
+    <button class="btn primary" style="width:100%">Open</button></form>`;
+  $("#gate").onsubmit = e => { e.preventDefault(); key = $("#pin").value.trim(); load(); };
+}
+
+/* ---------- totals: ideas are not counted ---------- */
+const counts = g => g.status !== "Idea";
+const sumOf = list => list.filter(counts).reduce((a, g) => a + Number(g.amount || 0), 0);
+const forWho = w => S.items.filter(g => g.who === w);
+function everyone(){ const extra = S.items.map(g => g.who).filter(w => w && S.people.indexOf(w) < 0); return S.people.concat(extra.filter((w, i) => extra.indexOf(w) === i)); }
+
+function itemHtml(g){
+  return `<article class="item ${esc(g.status)}">
+    <div class="top">
+      <div><div class="what">${esc(g.what)}</div>
+        <div class="meta">${[niceDate(g.date), g.store].filter(Boolean).map(esc).join(" · ")}</div></div>
+      <div class="amt num"><div class="half">${fmt(g.amount)}</div>${g.status === "Idea" ? `<div class="full">not counted</div>` : ""}</div>
+    </div>
+    ${g.note ? `<div class="note">${esc(g.note)}</div>` : ""}
+    <div class="row">
+      <span class="tag ${esc(g.status)}">${esc(g.status)}</span>
+      <button class="btn small" data-photo="${esc(g.id)}" ${g.hasPhoto ? "" : "disabled"}>${g.hasPhoto ? "See photo" : "No photo"}</button>
+      <button class="btn small ghost" data-edit="${esc(g.id)}">Edit</button>
+    </div></article>`;
+}
+
+function giftsHtml(){
+  const total = sumOf(S.items), bought = S.items.filter(counts).length;
+  const list = everyone().filter(w => forWho(w).length);
+  let html = `<section class="card balance" aria-label="Total">
+      <div class="label">Spent on Christmas so far</div>
+      <div class="big num">${fmt(total)}</div>
+      <div class="people num">${everyone().map(w => `<div><span>${esc(w)}</span><b>${fmt(sumOf(forWho(w)))}</b></div>`).join("")}</div>
+    </section>
+    <div class="actions"><button class="btn primary" id="addBtn">+ Add a gift</button></div>
+    <p class="sub">${bought} gift${bought === 1 ? "" : "s"} bought. Tap a name to see each gift.</p>`;
+  if (!list.length) return html + `<div class="empty">Nothing added yet.</div>`;
+  list.forEach(w => {
+    const mine = forWho(w).sort((a, b) => b.date.localeCompare(a.date)), n = mine.filter(counts).length;
+    html += `<details class="cat" data-cat="${esc(w)}" ${S.open[w] ? "open" : ""}>
+      <summary><span class="cname">${esc(w)}</span><span class="ccount">${n} bought</span><span class="csum num">${fmt(sumOf(mine))}</span></summary>
+      <div class="cbody">${mine.map(itemHtml).join("")}<button class="btn small" data-addfor="${esc(w)}" style="margin-top:4px">+ Add a gift for ${esc(w)}</button></div>
+    </details>`;
+  });
+  return html;
+}
+
+function homeHtml(){
+  const d = new Date(), xmas = new Date(d.getFullYear(), 11, 25), days = Math.ceil((xmas - new Date(d.toDateString())) / 864e5);
+  const sq = (attrs, label, sub) => `<button type="button" ${attrs}><span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}</button>`;
+  const tiles = [sq('data-go="add"', "Add a gift", "Photo of the order"), sq('data-go="list"', "All gifts", fmt(sumOf(S.items)) + " total")]
+    .concat(everyone().map(w => { const n = forWho(w).filter(counts).length;
+      return sq(`data-go="list" data-opencat="${esc(w)}"`, w, n ? fmt(sumOf(forWho(w))) + " · " + n + " gift" + (n === 1 ? "" : "s") : "Nothing yet"); }));
+  return `<section class="home">
+    <div class="hhi"><span>Merry Christmas,</span><span class="hname">Alexandra</span></div>
+    <p class="hdate">${d.toLocaleDateString("en-US", {weekday:"long", month:"long", day:"numeric"})}${days > 0 ? ` · ${days} day${days === 1 ? "" : "s"} to go` : ""}</p>
+    <p class="hbal">Spent so far: <span class="num">${fmt(sumOf(S.items))}</span></p>
+    <div class="mhead">Menu</div>
+    <div class="cgrid">${tiles.join("")}</div>
+  </section>`;
+}
+
+function render(){
+  let html = `<h1>Christmas Gifts</h1>
+    <div class="tabs" role="tablist" style="margin-top:14px">
+      <button role="tab" class="tab" data-tab="home" aria-selected="${S.tab==="home"}">Home</button>
+      <button role="tab" class="tab" data-tab="list" aria-selected="${S.tab==="list"}">Gifts</button>
+    </div>`;
+  html += S.tab === "home" ? homeHtml() : giftsHtml();
+  $("#app").innerHTML = html;
+  $("#rbar").hidden = false;
+  if (S.loadedAt) $("#rbarAt").textContent = "Updated " + S.loadedAt.toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"});
+  document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    if (b.dataset.go === "add") return openForm(null);
+    if (b.dataset.opencat) { S.open = {}; S.open[b.dataset.opencat] = true; }
+    S.tab = b.dataset.go; render(); window.scrollTo(0, 0);
+  });
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { S.tab = b.dataset.tab; render(); });
+  document.querySelectorAll("details.cat").forEach(d => d.ontoggle = () => { S.open[d.dataset.cat] = d.open; });
+  document.querySelectorAll("[data-photo]").forEach(b => b.onclick = () => viewPhoto(b.dataset.photo));
+  document.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => openForm(b.dataset.edit));
+  document.querySelectorAll("[data-addfor]").forEach(b => b.onclick = () => openForm(null, b.dataset.addfor));
+  const add = $("#addBtn"); if (add) add.onclick = () => openForm(null);
+}
+
+/* ---------- add / edit ---------- */
+function whoValue(){ return $("#fWho").value === "__other" ? $("#fOther").value.trim() : $("#fWho").value; }
+function updateWill(){
+  const w = whoValue(), amt = Number($("#fAmt").value || 0), it = S.editing;
+  if (!w) { $("#fWill").textContent = "Pick who it's for and the total adds up for you."; return; }
+  const base = sumOf(forWho(w).filter(g => !it || g.id !== it.id));
+  const add = $("#fStatus").value === "Idea" ? 0 : amt;
+  $("#fWill").innerHTML = `${esc(w)}'s total will be <b class="num">${fmt(base + add)}</b>`;
+}
+function openForm(id, forWho_){
+  const it = id ? S.items.find(g => g.id === id) : null;
+  S.editing = it; S.file = null;
+  $("#formTitle").textContent = it ? "Edit gift" : "Add a gift";
+  const names = everyone();
+  $("#fWho").innerHTML = `<option value="">Choose…</option>` + names.map(w => `<option>${esc(w)}</option>`).join("") + `<option value="__other">Someone else…</option>`;
+  $("#fWho").value = it ? it.who : (forWho_ || "");
+  $("#fOther").value = "";
+  $("#fWhat").value = it ? it.what : "";
+  $("#fAmt").value = it ? it.amount : "";
+  $("#fStore").value = it ? it.store : "";
+  $("#fDate").value = it ? it.date : today();
+  $("#fStatus").value = it ? it.status : "Bought";
+  $("#fNote").value = it ? it.note : "";
+  $("#fOtherWrap").classList.add("hide");
+  $("#fDelete").classList.toggle("hide", !it);
+  $("#fDrop").innerHTML = it && it.hasPhoto ? "Photo saved. Tap to replace it." : "Tap to add a screenshot or photo, or drag it here";
+  $("#fErr").textContent = ""; $("#fFile").value = "";
+  updateWill();
+  $("#formVeil").classList.add("open");
+}
+function closeForm(){ $("#formVeil").classList.remove("open"); }
+
+function shrink(file){
+  return new Promise((ok, bad) => {
+    if (file.type === "application/pdf") { const r = new FileReader(); r.onload = () => ok({mime:file.type, b64:String(r.result).split(",")[1], preview:null}); r.onerror = bad; r.readAsDataURL(file); return; }
+    if (window.TUp) { TUp.shrink(file, 1800, .82).then(data => ok({mime:"image/jpeg", b64:data.split(",")[1], preview:data}), () => bad(new Error("That photo couldn't be read. Try a screenshot."))); return; }
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, 1800 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const data = c.toDataURL("image/jpeg", .82); URL.revokeObjectURL(url);
+      ok({mime:"image/jpeg", b64:data.split(",")[1], preview:data});
+    };
+    img.onerror = () => bad(new Error("That photo couldn't be read. Try a screenshot."));
+    img.src = url;
+  });
+}
+
+$("#fWho").onchange = () => { $("#fOtherWrap").classList.toggle("hide", $("#fWho").value !== "__other"); updateWill(); };
+["#fOther", "#fAmt"].forEach(s => $(s).addEventListener("input", updateWill));
+$("#fStatus").onchange = updateWill;
+$("#fDrop").onclick = () => $("#fFile").click();
+$("#fDrop").onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#fFile").click(); } };
+$("#fDrop").ondragover = e => e.preventDefault();
+$("#fDrop").ondrop = e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) pick(f); };
+$("#fFile").onchange = e => { const f = e.target.files[0]; if (f) pick(f); };
+async function pick(f){
+  $("#fDrop").textContent = "Getting the photo ready…";
+  try { S.file = await shrink(f); $("#fDrop").innerHTML = S.file.preview ? `<img src="${S.file.preview}" alt="Photo preview">Tap to change` : `📄 ${esc(f.name)} · Tap to change`; }
+  catch (err) { S.file = null; $("#fDrop").textContent = err.message; }
+}
+$("#fCancel").onclick = closeForm;
+$("#formVeil").onclick = e => { if (e.target.id === "formVeil") closeForm(); };
+$("#form").onsubmit = async e => {
+  e.preventDefault();
+  const it = S.editing, save = $("#fSave"), who = whoValue();
+  if (!who) { $("#fErr").textContent = "Pick who it's for."; return; }
+  const data = { who, what:$("#fWhat").value, amount:$("#fAmt").value, store:$("#fStore").value, date:$("#fDate").value, status:$("#fStatus").value, note:$("#fNote").value };
+  save.disabled = true; save.textContent = S.file ? "Uploading…" : "Saving…"; $("#fErr").textContent = "";
+  try {
+    await api({op: it ? "update" : "add", id: it && it.id, data, photo: S.file && {mime:S.file.mime, b64:S.file.b64}});
+    closeForm(); await load();
+    toast(`Saved. ${who}'s total is ${fmt(sumOf(forWho(who)))}`);
+  } catch (err) { $("#fErr").textContent = err.message; }
+  finally { save.disabled = false; save.textContent = "Save"; }
+};
+$("#fDelete").onclick = async () => {
+  const it = S.editing; if (!it || !confirm(`Delete "${it.what}"?`)) return;
+  try { await api({op:"delete", id:it.id}); closeForm(); toast("Deleted"); await load(); }
+  catch (err) { $("#fErr").textContent = err.message; }
+};
+
+/* ---------- photos ---------- */
+let viewUrl = null;
+async function viewPhoto(id){
+  const it = S.items.find(g => g.id === id);
+  $("#viewTitle").textContent = it ? it.what : "Photo";
+  $("#viewBody").innerHTML = `<div class="empty">Loading the photo…</div>`;
+  $("#viewOpen").classList.add("hide"); $("#viewVeil").classList.add("open");
+  try {
+    const j = await api({op:"photo", id});
+    const bytes = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0));
+    if (viewUrl) URL.revokeObjectURL(viewUrl);
+    viewUrl = URL.createObjectURL(new Blob([bytes], {type:j.mime}));
+    $("#viewBody").innerHTML = j.mime === "application/pdf" ? `<iframe src="${viewUrl}" title="Photo"></iframe>` : `<img src="${viewUrl}" alt="${esc(it ? it.what : "Gift")}">`;
+    $("#viewOpen").href = viewUrl; $("#viewOpen").classList.remove("hide");
+  } catch (err) { $("#viewBody").innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+}
+$("#viewClose").onclick = () => $("#viewVeil").classList.remove("open");
+$("#viewVeil").onclick = e => { if (e.target.id === "viewVeil") $("#viewVeil").classList.remove("open"); };
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeForm(); $("#viewVeil").classList.remove("open"); } });
+$("#rbarBtn").onclick = async () => { const b = $("#rbarBtn"); b.disabled = true; b.textContent = "Refreshing…"; try { await load(); } finally { b.disabled = false; b.textContent = "Refresh"; } };
+
+if (window.DEMO) { api = window.DEMO; }
+if (key || window.DEMO) load(); else gate();
+</script>
+</body>
+</html>
