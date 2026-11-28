@@ -360,8 +360,8 @@ function applyLocal(coll, id, data, mode){
 }
 async function write(op, coll, id, data){
   if(!db || readOnly) return;
-  try { const j = await api({action:op, coll, id, data}); applyLocal(coll, j.id || id, data, op); render(); }
-  catch(e){ toast("Couldn't save that. "+e.message+" Check your connection and try again."); }
+  try { const j = await api({action:op, coll, id, data}); applyLocal(coll, j.id || id, data, op); render(); return true; }
+  catch(e){ toast("Couldn't save that. "+e.message+" Check your connection and try again."); return false; }
 }
 const save = (coll, id, data) => write("set", coll, id, data);
 const patch = (coll, id, data) => write("update", coll, id, data);
@@ -554,8 +554,13 @@ function assignLi(a){
   const dn = isDone(a);
   return `<li class="${dn?"done":""}"><input type="checkbox" class="check" data-assign="${a._id}" ${dn?"checked":""} ${readOnly?"disabled":""} aria-label="Mark ${esc(showTitle(a))} done"><div class="grow"><div class="t">${esc(showTitle(a))}${exTag(a)}</div><div class="meta"><span style="color:${kidColor(a.kid)}">●</span> ${esc(kidName(a.kid))} · ${esc(a.cls)}${a.notes?" · "+esc(a.notes):""}</div></div><div style="display:grid;gap:4px;justify-items:end">${dn?doneChip(a):`<span class="chip ${cls}">${lab}</span>`}<span class="chip src">${esc(a.source||"Added by hand")}</span>${isMom()&&!readOnly?`<button class="btn ghost small" data-edit-assign="${a._id}">Edit</button>`:""}</div></li>`;
 }
+/* Tasks the au pair added for Alexandra: she sees them (read only) so she knows they went through. */
+const sentToMom = x => !x.done && x.who === "mom" && x.from === "nanny";
+function sentLi(x){
+  return `<li><span class="dot" style="background:var(--accent)"></span><div class="grow"><div class="t">${esc(x.text)}</div><div class="meta">For Alexandra${x.due?" · by "+fmtDate(x.due):""}</div></div><span class="chip">Sent</span></li>`;
+}
 function todoLi(x){
-  const who = x.who === "nanny" ? nannyName() : x.who === "mom" ? "Alexandra" : "Either";
+  const who = (x.who === "nanny" ? nannyName() : x.who === "mom" ? "Alexandra" : "Either") + (x.from === "nanny" && x.who !== "nanny" ? " · from "+nannyName() : "");
   return `<li class="${x.done?"done":""}"><input type="checkbox" class="check" data-todo="${x._id}" ${x.done?"checked":""} ${readOnly?"disabled":""} aria-label="Mark done"><div class="grow"><div class="t">${esc(x.text)}${exTag(x)}${x.extra==="yes"?` <span class="chip warn">Extra task</span>`:""}</div><div class="meta">${esc(who)}${x.due?" · by "+fmtDate(x.due):""}${x.kid&&x.kid!=="all"?" · "+esc(kidName(x.kid)):""}</div></div>${!readOnly?`<button class="btn ghost small" data-edit-todo="${x._id}">Edit</button>`:""}</li>`;
 }
 
@@ -739,11 +744,13 @@ function renderTodos(){
   const mine = x => isMom() || x.who !== "mom";
   const open = S.todos.filter(x=>!x.done && mine(x)).sort((a,b)=>(a.due||"9").localeCompare(b.due||"9"));
   const done = S.todos.filter(x=>recentlyDone(x) && mine(x)).sort((a,b)=>(b.doneAt||"").localeCompare(a.doneAt||""));
+  const sent = isMom() ? [] : S.todos.filter(sentToMom);
   return `<section class="panel">
     ${!readOnly?`<form id="quickAdd" class="row" style="gap:8px;margin-bottom:8px"><label class="f grow" for="qaText" style="min-width:200px">Add to the list<input id="qaText" placeholder="e.g. Pack Leo's swim bag" autocomplete="off"></label>
       <label class="f" for="qaWho">For<select id="qaWho">${[["nanny",nannyName()],["nanny-extra",nannyName()+" (extra task)"],["mom","Alexandra"],["either","Either"]].map(o=>`<option value="${o[0]}" ${o[0]===(isMom()?"nanny":"mom")?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>
       <button class="btn primary" type="submit" style="align-self:end">Add</button></form>`:""}
     ${open.length?`<ul class="list">${open.map(todoLi).join("")}</ul>`:`<p class="empty">Nothing on the list. Everything's checked off.</p>`}
+    ${sent.length?`<h3 style="margin-top:16px">Sent to Alexandra</h3><ul class="list">${sent.map(sentLi).join("")}</ul><p class="note">These are on Alexandra's list. They leave here when she checks them off.</p>`:""}
     ${done.length?`<h3 style="margin-top:16px">Checked off</h3><ul class="list">${done.map(todoLi).join("")}</ul><p class="note">Checked items drop off the list after ${HIDE_DONE_AFTER_DAYS} days. Uncheck one to bring it back.</p>`:""}
   </section>`;
 }
@@ -938,7 +945,7 @@ function todoForm(x){
   openForm(x?"Edit to-do":"Add to-do", [{key:"text",label:"To-do",req:true,ph:"e.g. Sign Ava's field trip form"},{key:"who",label:"For",type:"select",options:[["nanny",nannyName()],["mom","Alexandra"],["either","Either"]]},
     {key:"kid",label:"About",type:"select",options:kidOptions(true)},{key:"due",label:"By (optional)",type:"date"},
     {key:"extra",label:"Extra task (not kid-related, counts toward the weekly bonus)",type:"select",options:[["no","No"],["yes","Yes"]]}], x || {who: isMom()?"nanny":"mom", kid:"all", extra:"no"}, v => {
-      if(!v.text) return "Write the to-do."; const d = Object.assign({}, x?strip(x):{done:false}, v); delete d.example; save("todos", x?x._id:null, d);
+      if(!v.text) return "Write the to-do."; const d = Object.assign({}, x?strip(x):{done:false}, v); delete d.example; if(!x && !isMom()) d.from = "nanny"; save("todos", x?x._id:null, d).then(ok => { if(ok && !x && !isMom() && d.who==="mom") toast("Sent to Alexandra's list."); });
     }, x ? () => remove("todos", x._id) : null);
 }
 
@@ -1167,7 +1174,10 @@ function bind(){
   document.querySelectorAll("[data-assign]").forEach(c => c.onchange = () => patch("assignments", c.dataset.assign, {done: c.checked}));
   document.querySelectorAll("[data-todo]").forEach(c => c.onchange = () => patch("todos", c.dataset.todo, {done: c.checked, doneAt: c.checked ? new Date().toISOString() : ""}));
   const qa = $("#quickAdd"); if(qa) qa.onsubmit = e => { e.preventDefault(); const t = $("#qaText").value.trim(); if(!t) return;
-    const w = $("#qaWho").value; save("todos", null, {text:t, who: w==="nanny-extra"?"nanny":w, extra: w==="nanny-extra"?"yes":"no", kid:"all", due:"", done:false, doneAt:""}); $("#qaText").value = ""; };
+    const w = $("#qaWho").value, who = w==="nanny-extra"?"nanny":w;
+    const rec = {text:t, who, extra: w==="nanny-extra"?"yes":"no", kid:"all", due:"", done:false, doneAt:""}; if(!isMom()) rec.from = "nanny";
+    $("#qaText").value = "";
+    save("todos", null, rec).then(ok => { if(ok) toast(who==="mom" ? (isMom() ? "Added." : "Sent to Alexandra's list.") : "Added to the list."); else { const q = $("#qaText"); if(q && !q.value) q.value = t; } }); };
   const find = (arr,id) => arr.find(x=>x._id===id);
   document.querySelectorAll("[data-edit-shift]").forEach(b => b.onclick = () => shiftForm(find(S.shifts,b.dataset.editShift)));
   document.querySelectorAll("[data-edit-assign]").forEach(b => b.onclick = () => assignForm(find(S.assignments,b.dataset.editAssign)));
